@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { appClient } from '@/api/client';
 
 const ADMIN_USER_KEY = 'cyberswarm_admin_user';
 const APP_USER_KEY = 'cyberswarm_user';
@@ -179,10 +180,12 @@ export default function AdminDashboardButton() {
       };
 
       saveStoredAdminUser(user);
+      appClient.auth.setAccessToken(accessToken);
       setAdminUser(user);
       navigate('/admin');
     } catch (err) {
       clearStoredAdminUser();
+      appClient.auth.clearAccessToken();
       setAdminUser(null);
       setError(
         err instanceof Error && err.message

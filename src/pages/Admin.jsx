@@ -137,6 +137,7 @@ export default function Admin() {
 
             window.localStorage.setItem(ADMIN_USER_KEY, JSON.stringify(user));
             window.localStorage.setItem(APP_USER_KEY, JSON.stringify({ ...user, role: 'admin' }));
+            appClient.auth.setAccessToken(tokenResponse.access_token || '');
             setAuthUser(user);
             setAuthError('');
           } catch (_error) {
@@ -239,6 +240,12 @@ export default function Admin() {
       setIsDirty(false);
       setSaveMessage(`Saved ${new Date().toLocaleTimeString()}`);
       await invalidateContentQueries();
+    } catch (error) {
+      setSaveMessage(
+        error instanceof Error && error.message
+          ? `Save failed: ${error.message}`
+          : 'Save failed. Please sign in again.'
+      );
     } finally {
       setSaving(false);
     }
@@ -253,6 +260,12 @@ export default function Admin() {
       setIsDirty(false);
       setSaveMessage('Reset to defaults.');
       await invalidateContentQueries();
+    } catch (error) {
+      setSaveMessage(
+        error instanceof Error && error.message
+          ? `Reset failed: ${error.message}`
+          : 'Reset failed. Please sign in again.'
+      );
     } finally {
       setSaving(false);
     }
@@ -295,6 +308,7 @@ export default function Admin() {
     if (typeof window === 'undefined') return;
     window.localStorage.removeItem(ADMIN_USER_KEY);
     window.localStorage.removeItem(APP_USER_KEY);
+    appClient.auth.clearAccessToken();
     setAuthUser(null);
   };
 

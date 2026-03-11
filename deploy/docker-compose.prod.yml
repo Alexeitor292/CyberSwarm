@@ -16,12 +16,30 @@ services:
     networks:
       - cyberswarm_net
 
+  api:
+    container_name: cyberswarm-api
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile.api
+    image: cyberswarm-api:prod
+    restart: unless-stopped
+    expose:
+      - "3001"
+    environment:
+      ADMIN_EMAILS: ${VITE_ADMIN_EMAILS}
+      DATA_DIR: /data
+    volumes:
+      - cyberswarm_data:/data
+    networks:
+      - cyberswarm_net
+
   reverse-proxy:
     container_name: cyberswarm-proxy
     image: nginx:1.27-alpine
     restart: unless-stopped
     depends_on:
       - app
+      - api
     ports:
       - "${REVERSE_PROXY_BIND:-127.0.0.1:8081}:80"
     volumes:
@@ -44,3 +62,6 @@ services:
 networks:
   cyberswarm_net:
     name: cyberswarm-net
+
+volumes:
+  cyberswarm_data:

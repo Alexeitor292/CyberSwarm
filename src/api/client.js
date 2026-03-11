@@ -5,7 +5,10 @@ import {
 
 const CONTENT_STORAGE_KEY = 'cyberswarm_site_content_v1';
 const USER_STORAGE_KEY = 'cyberswarm_user';
+const ADMIN_TOKEN_STORAGE_KEY = 'cyberswarm_admin_access_token';
 const CONTENT_UPDATED_EVENT = 'cyberswarm:content-updated';
+const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '');
+const WRITE_LOCAL_FALLBACK = Boolean(import.meta.env.DEV);
 
 const isBrowser = typeof window !== 'undefined';
 
@@ -28,10 +31,13 @@ const readStoredContent = () => {
   }
 };
 
-const writeStoredContent = (content) => {
+const writeStoredContent = (content, options = {}) => {
   if (!isBrowser) return;
-  window.localStorage.setItem(CONTENT_STORAGE_KEY, JSON.stringify(content));
-  dispatchContentUpdated();
+  const normalized = normalizeSiteContent(content);
+  window.localStorage.setItem(CONTENT_STORAGE_KEY, JSON.stringify(normalized));
+  if (options.dispatch !== false) {
+    dispatchContentUpdated();
+  }
 };
 
 const compareValues = (left, right) => {
@@ -102,57 +108,6 @@ const readEntityRows = (content, entityName) => deepClone(entityReaders[entityNa
 
 const writeEntityRows = (content, entityName, rows) => entityWriters[entityName](content, deepClone(rows));
 
-const createEntityClient = (entityName, idPrefix) => ({
-  async list(sortKey, limit) {
-    const content = readStoredContent();
-    const rows = readEntityRows(content, entityName);
-    return limitRows(sortRows(rows, sortKey), limit);
-  },
-  async filter(filters, sortKey, limit) {
-    const content = readStoredContent();
-    const rows = readEntityRows(content, entityName);
-    return limitRows(sortRows(filterRows(rows, filters), sortKey), limit);
-  },
-  async replaceAll(rows) {
-    const content = readStoredContent();
-    const updated = writeEntityRows(content, entityName, rows);
-    writeStoredContent(normalizeSiteContent(updated));
-    return this.list();
-  },
-  async create(payload) {
-    const content = readStoredContent();
-    const rows = readEntityRows(content, entityName);
-    const row = {
-      id: payload?.id || createId(idPrefix),
-      created_date: payload?.created_date || new Date().toISOString(),
-      ...payload,
-    };
-    rows.push(row);
-    const updated = writeEntityRows(content, entityName, rows);
-    writeStoredContent(normalizeSiteContent(updated));
-    return row;
-  },
-  async update(id, patch) {
-    const content = readStoredContent();
-    const rows = readEntityRows(content, entityName);
-    const index = rows.findIndex((row) => row.id === id);
-    if (index === -1) {
-      throw new Error(`Entity "${entityName}" row "${id}" not found.`);
-    }
-    rows[index] = { ...rows[index], ...patch };
-    const updated = writeEntityRows(content, entityName, rows);
-    writeStoredContent(normalizeSiteContent(updated));
-    return rows[index];
-  },
-  async remove(id) {
-    const content = readStoredContent();
-    const rows = readEntityRows(content, entityName).filter((row) => row.id !== id);
-    const updated = writeEntityRows(content, entityName, rows);
-    writeStoredContent(normalizeSiteContent(updated));
-    return rows;
-  },
-});
-
 const getStoredUser = () => {
   if (!isBrowser) return null;
 
@@ -164,35 +119,220 @@ const getStoredUser = () => {
   }
 };
 
+const getStoredAccessToken = () => {
+  if (!isBrowser) return '';
+  return String(window.localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) || '');
+};
+
+let accessToken = getStoredAccessToken();
+
+const setAccessToken = (token) => {
+  accessToken = String(token || '').trim();
+  if (!isBrowser) return;
+
+  if (accessToken) {
+    window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, accessToken);
+    return;
+  }
+
+  window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+};
+
+const getApiUrl = (path) => `${API_BASE_URL}${path}`;
+
+const readErrorMessage = async (response) => {
+  try {
+    const payload = await response.json();
+    if (payload?.error) return String(payload.error);
+  } catch (_error) {
+    // Ignore invalid JSON bodies.
+  }
+  return `${response.status} ${response.statusText}`;
+};
+
+const apiRequest = async (path, options = {}) => {
+  const headers = new Headers(options.headers || {});
+  const response = await fetch(getApiUrl(path), {
+    ...options,
+    headers,
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  if (response.status === 204) return null;
+  return response.json();
+};
+
+const readContentFromApi = async () => {
+  const payload = await apiRequest('/content', { method: 'GET' });
+  return normalizeSiteContent(payload);
+};
+
+const writeContentToApi = async (content) => {
+  const token = accessToken || getStoredAccessToken();
+  if (!token) {
+    throw new Error('Admin session expired. Please sign in again at /admin.');
+  }
+
+  const payload = await apiRequest('/content', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(normalizeSiteContent(content)),
+  });
+
+  return normalizeSiteContent(payload);
+};
+
+const resetContentFromApi = async () => {
+  const token = accessToken || getStoredAccessToken();
+  if (!token) {
+    throw new Error('Admin session expired. Please sign in again at /admin.');
+  }
+
+  const payload = await apiRequest('/content/reset', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return normalizeSiteContent(payload);
+};
+
+const createEntityClient = (entityName, idPrefix) => ({
+  async list(sortKey, limit) {
+    const content = await appClient.content.get();
+    const rows = readEntityRows(content, entityName);
+    return limitRows(sortRows(rows, sortKey), limit);
+  },
+  async filter(filters, sortKey, limit) {
+    const content = await appClient.content.get();
+    const rows = readEntityRows(content, entityName);
+    return limitRows(sortRows(filterRows(rows, filters), sortKey), limit);
+  },
+  async replaceAll(rows) {
+    const content = await appClient.content.get();
+    const updated = writeEntityRows(content, entityName, rows);
+    await appClient.content.save(updated);
+    return this.list();
+  },
+  async create(payload) {
+    const content = await appClient.content.get();
+    const rows = readEntityRows(content, entityName);
+    const row = {
+      id: payload?.id || createId(idPrefix),
+      created_date: payload?.created_date || new Date().toISOString(),
+      ...payload,
+    };
+    rows.push(row);
+    const updated = writeEntityRows(content, entityName, rows);
+    await appClient.content.save(updated);
+    return row;
+  },
+  async update(id, patch) {
+    const content = await appClient.content.get();
+    const rows = readEntityRows(content, entityName);
+    const index = rows.findIndex((row) => row.id === id);
+    if (index === -1) {
+      throw new Error(`Entity "${entityName}" row "${id}" not found.`);
+    }
+    rows[index] = { ...rows[index], ...patch };
+    const updated = writeEntityRows(content, entityName, rows);
+    await appClient.content.save(updated);
+    return rows[index];
+  },
+  async remove(id) {
+    const content = await appClient.content.get();
+    const rows = readEntityRows(content, entityName).filter((row) => row.id !== id);
+    const updated = writeEntityRows(content, entityName, rows);
+    await appClient.content.save(updated);
+    return rows;
+  },
+});
+
 export const appClient = {
   content: {
     async get() {
-      return readStoredContent();
+      if (!isBrowser) return deepClone(DEFAULT_SITE_CONTENT);
+
+      try {
+        const content = await readContentFromApi();
+        writeStoredContent(content, { dispatch: false });
+        return content;
+      } catch (_error) {
+        return readStoredContent();
+      }
     },
     async save(content) {
       const normalized = normalizeSiteContent(content);
-      writeStoredContent(normalized);
-      return normalized;
+
+      try {
+        const saved = await writeContentToApi(normalized);
+        writeStoredContent(saved);
+        return saved;
+      } catch (error) {
+        if (WRITE_LOCAL_FALLBACK) {
+          writeStoredContent(normalized);
+          return normalized;
+        }
+        throw error;
+      }
     },
     async reset() {
-      const defaults = deepClone(DEFAULT_SITE_CONTENT);
-      writeStoredContent(defaults);
-      return defaults;
+      try {
+        const reset = await resetContentFromApi();
+        writeStoredContent(reset);
+        return reset;
+      } catch (error) {
+        if (WRITE_LOCAL_FALLBACK) {
+          const defaults = deepClone(DEFAULT_SITE_CONTENT);
+          writeStoredContent(defaults);
+          return defaults;
+        }
+        throw error;
+      }
     },
     subscribe(callback) {
       if (!isBrowser) return () => {};
 
-      const listener = async () => {
-        callback(await appClient.content.get());
+      let closed = false;
+      let polling = false;
+
+      const emit = async () => {
+        if (closed || polling) return;
+        polling = true;
+        try {
+          callback(await appClient.content.get());
+        } finally {
+          polling = false;
+        }
       };
 
-      window.addEventListener(CONTENT_UPDATED_EVENT, listener);
-      window.addEventListener('storage', listener);
-      listener();
+      const eventListener = () => {
+        emit();
+      };
+
+      window.addEventListener(CONTENT_UPDATED_EVENT, eventListener);
+      window.addEventListener('storage', eventListener);
+      emit();
+
+      const interval = window.setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          emit();
+        }
+      }, 30000);
 
       return () => {
-        window.removeEventListener(CONTENT_UPDATED_EVENT, listener);
-        window.removeEventListener('storage', listener);
+        closed = true;
+        window.clearInterval(interval);
+        window.removeEventListener(CONTENT_UPDATED_EVENT, eventListener);
+        window.removeEventListener('storage', eventListener);
       };
     },
   },
@@ -209,6 +349,15 @@ export const appClient = {
         throw new Error('not_authenticated');
       }
       return user;
+    },
+    setAccessToken(token) {
+      setAccessToken(token);
+    },
+    clearAccessToken() {
+      setAccessToken('');
+    },
+    getAccessToken() {
+      return accessToken || getStoredAccessToken();
     },
   },
 };

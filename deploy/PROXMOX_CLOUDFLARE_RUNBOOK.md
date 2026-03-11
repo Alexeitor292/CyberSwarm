@@ -104,6 +104,7 @@ Check status:
 docker compose --env-file deploy/.env.production -f deploy/docker-compose.prod.yml ps
 docker logs cyberswarm-proxy --tail 100
 docker logs cyberswarm-app --tail 100
+docker logs cyberswarm-api --tail 100
 ```
 
 ## 5. Configure Cloudflare Tunnel
@@ -134,6 +135,7 @@ Notes:
 
 `deploy/nginx/reverse-proxy.conf` handles:
 - request forwarding to app container
+- request forwarding to API container for `/api/*`
 - forwarded headers
 
 `deploy/nginx/app.conf` handles:
@@ -159,5 +161,5 @@ USE_TUNNEL=true ./deploy/scripts/deploy-prod.sh
 
 ## 9. Operational caveat
 
-Current admin content storage is browser local storage (`cyberswarm_site_content_v1`).
-This means content edits are not shared server-side across devices/users yet.
+Admin content is stored server-side by the `api` container in Docker volume `cyberswarm_data`.
+This means edits are shared across devices/users once saved.

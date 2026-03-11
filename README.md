@@ -16,6 +16,12 @@ npm install
 npm run dev
 ```
 
+Optional: run backend API locally (for shared-content behavior):
+
+```bash
+npm run dev:api
+```
+
 3. Build for production:
 
 ```bash
@@ -40,7 +46,7 @@ For self-hosted production on Proxmox LXC + Docker + Nginx + Cloudflare Tunnel, 
 ## Admin Dashboard
 
 - URL: `https://cyberswarmsac.com/admin`
-- Auth: Google SSO (client-side)
+- Auth: Google SSO (Google token is re-verified by the backend on content writes)
 - Editable content:
   - Hero pretitle/title/subtitle/countdown/CTA
   - Event details, form/map URLs, and draggable map pin (lat/lng/zoom)
@@ -63,8 +69,6 @@ VITE_ADMIN_EMAILS=you@yourdomain.com,second-admin@yourdomain.com
 
 ## Content storage
 
-Content is stored in browser local storage key:
+Content is stored server-side via the `/api/content` backend endpoint and persisted in Docker volume data.
 
-- `cyberswarm_site_content_v1`
-
-For now, this means changes are persisted for the browser/session where admin edits are made.
+Browser local storage (`cyberswarm_site_content_v1`) is now used only as a client cache/fallback.
