@@ -1,0 +1,27 @@
+{
+  "name": "AdminUpdate",
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string",
+      "description": "The update message to display in the ticker"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "normal",
+        "urgent"
+      ],
+      "default": "normal",
+      "description": "Priority level of the update"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this update is currently visible"
+    }
+  },
+  "required": [
+    "message"
+  ]
+}

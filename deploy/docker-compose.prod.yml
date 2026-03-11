@@ -1,0 +1,46 @@
+name: cyberswarm
+
+services:
+  app:
+    container_name: cyberswarm-app
+    build:
+      context: ..
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
+        VITE_ADMIN_EMAILS: ${VITE_ADMIN_EMAILS}
+    image: cyberswarm-app:prod
+    restart: unless-stopped
+    expose:
+      - "8080"
+    networks:
+      - cyberswarm_net
+
+  reverse-proxy:
+    container_name: cyberswarm-proxy
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "${REVERSE_PROXY_BIND:-127.0.0.1:8081}:80"
+    volumes:
+      - ./nginx/reverse-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - cyberswarm_net
+
+  cloudflared:
+    container_name: cyberswarm-tunnel
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    depends_on:
+      - reverse-proxy
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - cyberswarm_net
+    profiles:
+      - tunnel
+
+networks:
+  cyberswarm_net:
+    name: cyberswarm-net

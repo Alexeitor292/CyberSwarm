@@ -1,0 +1,55 @@
+{
+  "name": "AgendaItem",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Session title"
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of the session"
+    },
+    "speaker": {
+      "type": "string",
+      "description": "Speaker name"
+    },
+    "company": {
+      "type": "string",
+      "description": "Company or organization"
+    },
+    "start_time": {
+      "type": "string",
+      "description": "Start time (e.g. 09:00 AM)"
+    },
+    "end_time": {
+      "type": "string",
+      "description": "End time (e.g. 10:00 AM)"
+    },
+    "session_type": {
+      "type": "string",
+      "enum": [
+        "panel",
+        "keynote",
+        "networking",
+        "workshop",
+        "break"
+      ],
+      "default": "panel",
+      "description": "Type of session"
+    },
+    "session_label": {
+      "type": "string",
+      "description": "Optional custom session label displayed in the timeline card"
+    },
+    "order": {
+      "type": "number",
+      "description": "Display order"
+    }
+  },
+  "required": [
+    "title",
+    "start_time",
+    "end_time"
+  ]
+}

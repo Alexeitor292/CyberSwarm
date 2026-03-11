@@ -1,0 +1,50 @@
+{
+  "name": "EventConfig",
+  "type": "object",
+  "properties": {
+    "event_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the event"
+    },
+    "event_time": {
+      "type": "string",
+      "description": "Event start time"
+    },
+    "venue_name": {
+      "type": "string",
+      "description": "Name of the venue"
+    },
+    "venue_address": {
+      "type": "string",
+      "description": "Full address of the venue"
+    },
+    "pin_latitude": {
+      "type": "number",
+      "description": "Latitude for map pin location"
+    },
+    "pin_longitude": {
+      "type": "number",
+      "description": "Longitude for map pin location"
+    },
+    "pin_zoom": {
+      "type": "number",
+      "description": "Default map zoom level for the pin"
+    },
+    "google_maps_embed_url": {
+      "type": "string",
+      "description": "Google Maps embed URL"
+    },
+    "google_form_embed_url": {
+      "type": "string",
+      "description": "Google Form embed URL for registration"
+    },
+    "tagline": {
+      "type": "string",
+      "description": "Event tagline"
+    }
+  },
+  "required": [
+    "event_date"
+  ]
+}

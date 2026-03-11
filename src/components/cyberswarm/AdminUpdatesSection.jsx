@@ -1,0 +1,87 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import { appClient } from '@/api/client';
+import { useQuery } from '@tanstack/react-query';
+import { Terminal, AlertTriangle, Info } from 'lucide-react';
+import { format } from 'date-fns';
+
+export default function AdminUpdatesSection() {
+  const { data: updates = [] } = useQuery({
+    queryKey: ['admin-updates-section'],
+    queryFn: () => appClient.entities.AdminUpdate.filter({ active: true }, '-created_date', 10),
+    refetchInterval: 30000,
+  });
+
+  return (
+    <section id="updates" className="relative z-10 py-24 px-6">
+      <div className="max-w-4xl mx-auto">
+        {/* Section header */}
+        <motion.div
+          initial={{ opacity: 0, x: -30 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="mb-16"
+        >
+          <p className="font-mono text-xs tracking-[0.3em] text-primary/50 uppercase mb-3">
+            // Broadcast
+          </p>
+          <h2 className="font-heading text-4xl md:text-5xl font-bold text-foreground">
+            Admin Updates
+          </h2>
+        </motion.div>
+
+        {/* Terminal-style feed */}
+        <div className="glass rounded-lg overflow-hidden scanline relative">
+          {/* Terminal header */}
+          <div className="flex items-center gap-2 px-5 py-3 border-b border-primary/10 bg-background/40">
+            <Terminal className="w-3.5 h-3.5 text-primary/50" />
+            <span className="font-mono text-xs text-muted-foreground/70">system_broadcast.log</span>
+            <div className="ml-auto flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-accent/60 animate-pulse" />
+              <span className="font-mono text-xs text-accent/60">LIVE</span>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="p-5 space-y-3 max-h-96 overflow-y-auto">
+            {updates.length > 0 ? (
+              updates.map((update, i) => (
+                <motion.div
+                  key={update.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.05, duration: 0.3 }}
+                  className="flex items-start gap-3"
+                >
+                  {update.priority === 'urgent' ? (
+                    <AlertTriangle className="w-3.5 h-3.5 text-accent shrink-0 mt-0.5" />
+                  ) : (
+                    <Info className="w-3.5 h-3.5 text-primary/50 shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <span className="font-mono text-xs text-muted-foreground/65">
+                      [{format(new Date(update.created_date), 'HH:mm')}]
+                    </span>
+                    <span className={`font-mono text-sm ml-2 ${
+                      update.priority === 'urgent' ? 'text-accent/90 glow-red' : 'text-foreground/80'
+                    }`}>
+                      {update.message}
+                    </span>
+                  </div>
+                </motion.div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <p className="font-mono text-xs text-muted-foreground/60">
+                  {'>'} No active broadcasts. Standing by...
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
