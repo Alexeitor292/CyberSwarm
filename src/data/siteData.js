@@ -23,6 +23,8 @@ export const DEFAULT_EVENT_CONFIG = {
   event_date: '2026-04-15',
   event_time: '9:00 AM - 5:00 PM PST',
   venue_name: 'Sacramento State University',
+  venue_name_line_1: 'Sacramento State University',
+  venue_name_line_2: '',
   venue_address: '6000 J St, Sacramento, CA 95819',
   pin_latitude: 38.5616,
   pin_longitude: -121.4244,
@@ -232,6 +234,10 @@ export const normalizeSiteContent = (raw) => {
   const normalizedEventConfig = {
     ...DEFAULT_EVENT_CONFIG,
     ...eventConfig,
+    venue_name_line_1: String(
+      eventConfig.venue_name_line_1 ?? eventConfig.venue_name ?? DEFAULT_EVENT_CONFIG.venue_name_line_1
+    ),
+    venue_name_line_2: String(eventConfig.venue_name_line_2 ?? ''),
     pin_latitude: toFiniteNumber(eventConfig.pin_latitude, DEFAULT_EVENT_CONFIG.pin_latitude),
     pin_longitude: toFiniteNumber(eventConfig.pin_longitude, DEFAULT_EVENT_CONFIG.pin_longitude),
     pin_zoom: toClampedInteger(eventConfig.pin_zoom, DEFAULT_EVENT_CONFIG.pin_zoom, 3, 20),

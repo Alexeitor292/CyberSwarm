@@ -419,7 +419,29 @@ export default function Admin() {
                 <input type="date" className={fieldClasses} value={draft.eventConfig.event_date || ''} onChange={(e) => setField('eventConfig', 'event_date', e.target.value)} />
                 <input className={fieldClasses} value={draft.eventConfig.event_time || ''} onChange={(e) => setField('eventConfig', 'event_time', e.target.value)} placeholder="Event time" />
               </div>
-              <input className={fieldClasses} value={draft.eventConfig.venue_name || ''} onChange={(e) => setField('eventConfig', 'venue_name', e.target.value)} placeholder="Venue name" />
+              <div className="grid sm:grid-cols-2 gap-3">
+                <input
+                  className={fieldClasses}
+                  value={draft.eventConfig.venue_name_line_1 || draft.eventConfig.venue_name || ''}
+                  onChange={(e) =>
+                    updateDraft((prev) => ({
+                      ...prev,
+                      eventConfig: {
+                        ...prev.eventConfig,
+                        venue_name_line_1: e.target.value,
+                        venue_name: e.target.value,
+                      },
+                    }))
+                  }
+                  placeholder="Venue title line 1"
+                />
+                <input
+                  className={fieldClasses}
+                  value={draft.eventConfig.venue_name_line_2 || ''}
+                  onChange={(e) => setField('eventConfig', 'venue_name_line_2', e.target.value)}
+                  placeholder="Venue title line 2 (optional)"
+                />
+              </div>
               <input className={fieldClasses} value={draft.eventConfig.venue_address || ''} onChange={(e) => setField('eventConfig', 'venue_address', e.target.value)} placeholder="Venue address" />
               <div className="grid sm:grid-cols-3 gap-3">
                 <input

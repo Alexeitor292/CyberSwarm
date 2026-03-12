@@ -17,6 +17,8 @@ export default function EventInfo() {
   });
 
   const config = configs[0] || {};
+  const venueNameLine1 = String(config.venue_name_line_1 || config.venue_name || 'Sacramento State University').trim();
+  const venueNameLine2 = String(config.venue_name_line_2 || '').trim();
   const pinLat = toFiniteNumber(config.pin_latitude);
   const pinLng = toFiniteNumber(config.pin_longitude);
   const pinZoom = toFiniteNumber(config.pin_zoom, 15);
@@ -88,9 +90,10 @@ export default function EventInfo() {
                 </div>
                 <div>
                   <p className="font-mono text-xs text-muted-foreground/75 uppercase tracking-widest mb-1">Venue</p>
-                  <p className="font-heading text-lg font-semibold text-foreground">
-                    {config.venue_name || 'Sacramento State University'}
-                  </p>
+                  <p className="font-heading text-lg font-semibold text-foreground">{venueNameLine1}</p>
+                  {venueNameLine2 ? (
+                    <p className="font-heading text-base font-medium text-foreground/88">{venueNameLine2}</p>
+                  ) : null}
                   <p className="font-mono text-sm text-muted-foreground mt-1">
                     {config.venue_address || '6000 J St, Sacramento, CA 95819'}
                   </p>

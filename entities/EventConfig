@@ -15,6 +15,14 @@
       "type": "string",
       "description": "Name of the venue"
     },
+    "venue_name_line_1": {
+      "type": "string",
+      "description": "Venue title line 1 shown above the street address"
+    },
+    "venue_name_line_2": {
+      "type": "string",
+      "description": "Optional venue title line 2 shown above the street address"
+    },
     "venue_address": {
       "type": "string",
       "description": "Full address of the venue"
