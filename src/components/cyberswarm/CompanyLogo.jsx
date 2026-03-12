@@ -4,6 +4,7 @@ import { useSiteContent } from '@/hooks/use-site-content';
 
 export default function CompanyLogos() {
   const { data } = useSiteContent();
+  const organizationsSection = data?.organizationsSection || {};
   const organizations =
     data?.organizations
       ?.filter((item) => item.active !== false && item.name)
@@ -13,7 +14,7 @@ export default function CompanyLogos() {
     <section className="relative z-10 py-16 px-6">
       <div className="max-w-6xl mx-auto">
         <p className="font-mono text-xs text-center tracking-[0.3em] text-muted-foreground/70 uppercase mb-10">
-          Participating Organizations
+          {organizationsSection.heading || 'Participating Organizations'}
         </p>
         <div className="flex flex-wrap justify-center items-center gap-8 md:gap-14">
           {organizations.map((company, i) => (

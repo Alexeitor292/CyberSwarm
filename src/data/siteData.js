@@ -47,6 +47,10 @@ export const DEFAULT_FOOTER_CONFIG = {
   organization_text: 'Sacramento State University',
 };
 
+export const DEFAULT_ORGANIZATIONS_SECTION_CONFIG = {
+  heading: 'Participating Organizations',
+};
+
 export const DEFAULT_ORGANIZATIONS = [
   { id: 'org-1', name: 'CISCO', order: 1, active: true },
   { id: 'org-2', name: 'HPE', order: 2, active: true },
@@ -147,6 +151,7 @@ export const DEFAULT_SITE_CONTENT = {
   eventConfig: DEFAULT_EVENT_CONFIG,
   registration: DEFAULT_REGISTRATION_CONFIG,
   footer: DEFAULT_FOOTER_CONFIG,
+  organizationsSection: DEFAULT_ORGANIZATIONS_SECTION_CONFIG,
   organizations: DEFAULT_ORGANIZATIONS,
   agendaItems: DEFAULT_AGENDA_ITEMS,
   adminUpdates: DEFAULT_ADMIN_UPDATES,
@@ -247,6 +252,15 @@ export const normalizeSiteContent = (raw) => {
     footer: {
       ...DEFAULT_FOOTER_CONFIG,
       ...asObject(source.footer),
+    },
+    organizationsSection: {
+      ...DEFAULT_ORGANIZATIONS_SECTION_CONFIG,
+      ...asObject(source.organizationsSection),
+      heading: String(
+        source.organizationsSection?.heading ??
+          source.organizations_heading ??
+          DEFAULT_ORGANIZATIONS_SECTION_CONFIG.heading
+      ),
     },
     organizations: normalizeOrganizations(source.organizations ?? source.companies),
     agendaItems: normalizeAgendaItems(source.agendaItems ?? source.AgendaItem),

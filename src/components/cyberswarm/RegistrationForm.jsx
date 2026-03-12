@@ -64,7 +64,7 @@ export default function RegistrationForm() {
         >
           <h2
             className="font-heading text-5xl sm:text-7xl md:text-8xl font-bold text-transparent leading-none"
-            style={{ WebkitTextStroke: '1px hsl(var(--primary) / 0.3)' }}
+            style={{ WebkitTextStroke: '1px hsl(var(--primary) / 0.6)' }}
           >
             {registration.heading_top || 'JOIN THE'}
           </h2>
@@ -129,7 +129,15 @@ export default function RegistrationForm() {
               ) : (
                 <div className="p-10 text-center">
                   <p className="font-mono text-sm text-muted-foreground/85">
-                    Click <span className="text-primary">Fill Out The Form</span> to open it.
+                    Click{' '}
+                    <button
+                      type="button"
+                      onClick={() => setIsFormOpen(true)}
+                      className="text-primary font-semibold underline underline-offset-4 decoration-primary/60 hover:text-primary/90 transition-colors"
+                    >
+                      Fill Out The Form
+                    </button>{' '}
+                    to open it.
                   </p>
                 </div>
               )}

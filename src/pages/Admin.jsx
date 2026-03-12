@@ -503,10 +503,32 @@ export default function Admin() {
             </Section>
 
             <Section title="Organizations">
+              <input
+                className={fieldClasses}
+                value={draft.organizationsSection?.heading || ''}
+                onChange={(e) => setField('organizationsSection', 'heading', e.target.value)}
+                placeholder="Section heading (e.g., Participating Organizations)"
+              />
               <div className="space-y-3">
                 {draft.organizations.map((org, index) => (
                   <div key={org.id || index} className="flex items-center gap-2">
                     <input className={fieldClasses} value={org.name || ''} onChange={(e) => setListItemField('organizations', index, 'name', e.target.value)} placeholder="Organization name" />
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      className="w-24 bg-background/60 border border-primary/20 rounded px-2 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                      value={org.order ?? index + 1}
+                      onChange={(e) =>
+                        setListItemField(
+                          'organizations',
+                          index,
+                          'order',
+                          Math.max(1, Number(e.target.value) || index + 1)
+                        )
+                      }
+                      placeholder="Order"
+                    />
                     <label className="font-mono text-xs text-muted-foreground/80 flex items-center gap-1">
                       <input type="checkbox" checked={org.active !== false} onChange={(e) => setListItemField('organizations', index, 'active', e.target.checked)} />
                       Active
