@@ -27,6 +27,11 @@
       "type": "string",
       "description": "Full address of the venue"
     },
+    "map_display_mode": {
+      "type": "string",
+      "description": "How the public map should be rendered: a pasted Google Maps iframe or a manual pin",
+      "enum": ["iframe", "pin"]
+    },
     "pin_latitude": {
       "type": "number",
       "description": "Latitude for map pin location"

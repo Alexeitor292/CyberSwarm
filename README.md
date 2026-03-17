@@ -49,7 +49,7 @@ For self-hosted production on Proxmox LXC + Docker + Nginx + Cloudflare Tunnel, 
 - Auth: Google SSO (Google token is re-verified by the backend on content writes)
 - Editable content:
   - Hero pretitle/title/subtitle/countdown/CTA
-  - Event details, form/map URLs, and draggable map pin (lat/lng/zoom)
+  - Event details, map source mode (Google iframe or manual pin), form/map URLs, and draggable map pin (lat/lng/zoom)
   - Registration section copy
   - Footer copy
   - Participating organizations
@@ -62,10 +62,13 @@ Create `.env.local`:
 
 ```bash
 VITE_GOOGLE_CLIENT_ID=your_google_oauth_client_id.apps.googleusercontent.com
+VITE_GOOGLE_MAPS_EMBED_API_KEY=your_referrer_restricted_maps_embed_key
 VITE_ADMIN_EMAILS=you@yourdomain.com,second-admin@yourdomain.com
 ```
 
 `VITE_ADMIN_EMAILS` is optional. If set, only listed emails can access `/admin`.
+
+`VITE_GOOGLE_MAPS_EMBED_API_KEY` is optional. It lets the public site render the selected manual pin inside a Google Maps embed. Without it, manual-pin mode falls back to an OpenStreetMap embed while pasted Google iframe mode keeps using the saved Google embed URL.
 
 ## Content storage
 

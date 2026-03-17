@@ -5,9 +5,122 @@ import { appClient } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 
+const DEFAULT_VENUE_NAME = 'Sacramento State University';
+const DEFAULT_VENUE_ADDRESS = '6000 J St, Sacramento, CA 95819';
+const DEFAULT_MAP_EMBED_URL =
+  'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3119.4!2d-121.4244!3d38.5616!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x809ad0a3c3b1b8e7%3A0x1b0e3a3f2b0b0b0b!2sCalifornia%20State%20University%2C%20Sacramento!5e0!3m2!1sen!2sus!4v1700000000000';
+
 const toFiniteNumber = (value, fallback = null) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+};
+const toMapDisplayMode = (value) => (value === 'iframe' ? 'iframe' : 'pin');
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const normalizeEmbedUrl = (value) => {
+  const next = String(value || '').trim();
+  if (!next) return '';
+
+  try {
+    const iframeSrcMatch = next.match(/src=(['"])(.*?)\1/i);
+    const candidate = iframeSrcMatch?.[2] || next;
+    const url = new URL(candidate);
+    const host = url.hostname.toLowerCase();
+    const isGoogleHost =
+      host === 'google.com' ||
+      host === 'www.google.com' ||
+      host === 'maps.google.com';
+
+    if (!isGoogleHost) return url.toString();
+
+    return url.pathname.toLowerCase().includes('/maps/embed') ? url.toString() : '';
+  } catch (_error) {
+    return '';
+  }
+};
+
+const buildGoogleMapsPinEmbedUrl = ({
+  apiKey,
+  hasPin,
+  pinLat,
+  pinLng,
+  pinZoom,
+  venueName,
+  venueAddress,
+}) => {
+  if (apiKey) {
+    const query = hasPin
+      ? `${pinLat},${pinLng}`
+      : [venueName, venueAddress].filter(Boolean).join(', ');
+    const url = new URL('https://www.google.com/maps/embed/v1/place');
+    url.searchParams.set('key', apiKey);
+    url.searchParams.set('q', query || `${DEFAULT_VENUE_NAME}, ${DEFAULT_VENUE_ADDRESS}`);
+
+    if (hasPin) {
+      url.searchParams.set('zoom', String(Math.min(20, Math.max(3, Math.round(pinZoom)))));
+    }
+
+    return url.toString();
+  }
+
+  return '';
+};
+
+const buildOpenStreetMapEmbedUrl = ({ hasPin, pinLat, pinLng, pinZoom }) => {
+  if (!hasPin) return '';
+
+  const lat = clamp(pinLat, -85, 85);
+  const lng = clamp(pinLng, -180, 180);
+  const zoom = clamp(Math.round(pinZoom || 15), 3, 20);
+  const latDelta = Math.max(0.0025, 180 / Math.pow(2, zoom + 1));
+  const lngDelta = Math.max(0.0025, 360 / Math.pow(2, zoom + 1));
+
+  const url = new URL('https://www.openstreetmap.org/export/embed.html');
+  url.searchParams.set(
+    'bbox',
+    [
+      clamp(lng - lngDelta, -180, 180),
+      clamp(lat - latDelta, -85, 85),
+      clamp(lng + lngDelta, -180, 180),
+      clamp(lat + latDelta, -85, 85),
+    ].join(',')
+  );
+  url.searchParams.set('layer', 'mapnik');
+  url.searchParams.set('marker', `${lat},${lng}`);
+  return url.toString();
+};
+
+const resolveMapEmbedUrl = ({
+  mode,
+  apiKey,
+  fallbackEmbedUrl,
+  hasPin,
+  pinLat,
+  pinLng,
+  pinZoom,
+  venueName,
+  venueAddress,
+}) => {
+  const normalizedFallbackUrl = normalizeEmbedUrl(fallbackEmbedUrl);
+
+  if (mode === 'iframe') {
+    return normalizedFallbackUrl || DEFAULT_MAP_EMBED_URL;
+  }
+
+  return (
+    buildGoogleMapsPinEmbedUrl({
+      apiKey,
+      hasPin,
+      pinLat,
+      pinLng,
+      pinZoom,
+      venueName,
+      venueAddress,
+    }) ||
+    buildOpenStreetMapEmbedUrl({ hasPin, pinLat, pinLng, pinZoom }) ||
+    normalizedFallbackUrl ||
+    DEFAULT_MAP_EMBED_URL
+  );
 };
 
 export default function EventInfo() {
@@ -17,22 +130,29 @@ export default function EventInfo() {
   });
 
   const config = configs[0] || {};
-  const venueNameLine1 = String(config.venue_name_line_1 || config.venue_name || 'Sacramento State University').trim();
+  const googleMapsEmbedApiKey = String(import.meta.env.VITE_GOOGLE_MAPS_EMBED_API_KEY || '').trim();
+  const venueNameLine1 = String(config.venue_name_line_1 || config.venue_name || DEFAULT_VENUE_NAME).trim();
   const venueNameLine2 = String(config.venue_name_line_2 || '').trim();
   const pinLat = toFiniteNumber(config.pin_latitude);
   const pinLng = toFiniteNumber(config.pin_longitude);
   const pinZoom = toFiniteNumber(config.pin_zoom, 15);
+  const mapDisplayMode = toMapDisplayMode(config.map_display_mode);
   const hasPin = pinLat !== null && pinLng !== null;
   const pinQuery = hasPin ? `${pinLat},${pinLng}` : '';
-  const directionsDestination = hasPin
+  const directionsDestination = mapDisplayMode === 'pin' && hasPin
     ? pinQuery
-    : config.venue_address || '6000 J St, Sacramento, CA 95819';
-
-  const defaultMapUrl =
-    'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3119.4!2d-121.4244!3d38.5616!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x809ad0a3c3b1b8e7%3A0x1b0e3a3f2b0b0b0b!2sCalifornia%20State%20University%2C%20Sacramento!5e0!3m2!1sen!2sus!4v1700000000000';
-  const mapEmbedUrl = hasPin
-    ? `https://www.google.com/maps?q=${encodeURIComponent(pinQuery)}&z=${pinZoom}&output=embed`
-    : config.google_maps_embed_url || defaultMapUrl;
+    : config.venue_address || DEFAULT_VENUE_ADDRESS;
+  const mapEmbedUrl = resolveMapEmbedUrl({
+    mode: mapDisplayMode,
+    apiKey: googleMapsEmbedApiKey,
+    fallbackEmbedUrl: config.google_maps_embed_url,
+    hasPin,
+    pinLat,
+    pinLng,
+    pinZoom,
+    venueName: [venueNameLine1, venueNameLine2].filter(Boolean).join(', '),
+    venueAddress: config.venue_address || DEFAULT_VENUE_ADDRESS,
+  });
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(directionsDestination)}`;
 
   return (
@@ -95,7 +215,7 @@ export default function EventInfo() {
                     <p className="font-heading text-base font-medium text-foreground/88">{venueNameLine2}</p>
                   ) : null}
                   <p className="font-mono text-sm text-muted-foreground mt-1">
-                    {config.venue_address || '6000 J St, Sacramento, CA 95819'}
+                    {config.venue_address || DEFAULT_VENUE_ADDRESS}
                   </p>
                 </div>
               </div>

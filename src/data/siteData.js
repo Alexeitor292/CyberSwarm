@@ -26,6 +26,7 @@ export const DEFAULT_EVENT_CONFIG = {
   venue_name_line_1: 'Sacramento State University',
   venue_name_line_2: '',
   venue_address: '6000 J St, Sacramento, CA 95819',
+  map_display_mode: 'pin',
   pin_latitude: 38.5616,
   pin_longitude: -121.4244,
   pin_zoom: 15,
@@ -221,6 +222,8 @@ const toClampedInteger = (value, fallback, min, max) => {
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, Math.round(parsed)));
 };
+const toMapDisplayMode = (value, fallback) =>
+  value === 'iframe' || value === 'pin' ? value : fallback;
 
 export const normalizeSiteContent = (raw) => {
   const source = asObject(raw);
@@ -238,6 +241,10 @@ export const normalizeSiteContent = (raw) => {
       eventConfig.venue_name_line_1 ?? eventConfig.venue_name ?? DEFAULT_EVENT_CONFIG.venue_name_line_1
     ),
     venue_name_line_2: String(eventConfig.venue_name_line_2 ?? ''),
+    map_display_mode: toMapDisplayMode(
+      eventConfig.map_display_mode,
+      String(eventConfig.google_maps_embed_url || '').trim() ? 'iframe' : DEFAULT_EVENT_CONFIG.map_display_mode
+    ),
     pin_latitude: toFiniteNumber(eventConfig.pin_latitude, DEFAULT_EVENT_CONFIG.pin_latitude),
     pin_longitude: toFiniteNumber(eventConfig.pin_longitude, DEFAULT_EVENT_CONFIG.pin_longitude),
     pin_zoom: toClampedInteger(eventConfig.pin_zoom, DEFAULT_EVENT_CONFIG.pin_zoom, 3, 20),
