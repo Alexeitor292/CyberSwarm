@@ -38,6 +38,46 @@ const normalizeEmbedUrl = (value) => {
   }
 };
 
+const decodeMapToken = (value) => {
+  const next = String(value || '').trim();
+  if (!next) return '';
+
+  try {
+    return decodeURIComponent(next.replace(/\+/g, ' ')).trim();
+  } catch (_error) {
+    return next;
+  }
+};
+
+const extractDirectionsDestinationFromEmbedUrl = (value, venueAddress) => {
+  const normalizedUrl = normalizeEmbedUrl(value);
+  if (!normalizedUrl) return '';
+
+  try {
+    const url = new URL(normalizedUrl);
+    const directQuery = String(url.searchParams.get('q') || '').trim();
+    if (directQuery) return directQuery;
+
+    const pb = String(url.searchParams.get('pb') || '');
+    if (!pb) return '';
+
+    const latMatches = Array.from(pb.matchAll(/!3d(-?\d+(?:\.\d+)?)/g));
+    const lngMatches = Array.from(pb.matchAll(/!2d(-?\d+(?:\.\d+)?)/g));
+    const lat = latMatches.at(-1)?.[1];
+    const lng = lngMatches.at(-1)?.[1];
+    if (lat && lng) return `${lat},${lng}`;
+
+    const placeName = decodeMapToken(pb.match(/!2s([^!]+)/)?.[1]);
+    if (placeName) {
+      return [placeName, String(venueAddress || '').trim()].filter(Boolean).join(', ');
+    }
+  } catch (_error) {
+    return '';
+  }
+
+  return '';
+};
+
 const buildGoogleMapsPinEmbedUrl = ({
   apiKey,
   hasPin,
@@ -128,15 +168,13 @@ export default function EventInfo() {
   const googleMapsEmbedApiKey = String(import.meta.env.VITE_GOOGLE_MAPS_EMBED_API_KEY || '').trim();
   const venueNameLine1 = String(config.venue_name_line_1 || config.venue_name || DEFAULT_VENUE_NAME).trim();
   const venueNameLine2 = String(config.venue_name_line_2 || '').trim();
+  const venueAddress = String(config.venue_address || DEFAULT_VENUE_ADDRESS).trim();
   const pinLat = toFiniteNumber(config.pin_latitude);
   const pinLng = toFiniteNumber(config.pin_longitude);
   const pinZoom = toFiniteNumber(config.pin_zoom, 15);
   const mapDisplayMode = toMapDisplayMode(config.map_display_mode);
   const hasPin = pinLat !== null && pinLng !== null;
   const pinQuery = hasPin ? `${pinLat},${pinLng}` : '';
-  const directionsDestination = mapDisplayMode === 'pin' && hasPin
-    ? pinQuery
-    : config.venue_address || DEFAULT_VENUE_ADDRESS;
   const mapEmbedUrl = resolveMapEmbedUrl({
     mode: mapDisplayMode,
     apiKey: googleMapsEmbedApiKey,
@@ -146,8 +184,11 @@ export default function EventInfo() {
     pinLng,
     pinZoom,
     venueName: [venueNameLine1, venueNameLine2].filter(Boolean).join(', '),
-    venueAddress: config.venue_address || DEFAULT_VENUE_ADDRESS,
+    venueAddress,
   });
+  const directionsDestination = mapDisplayMode === 'pin' && hasPin
+    ? pinQuery
+    : extractDirectionsDestinationFromEmbedUrl(mapEmbedUrl, venueAddress) || venueAddress;
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(directionsDestination)}`;
 
   return (
@@ -210,7 +251,7 @@ export default function EventInfo() {
                     <p className="font-heading text-base font-medium text-foreground/88">{venueNameLine2}</p>
                   ) : null}
                   <p className="font-mono text-sm text-muted-foreground mt-1">
-                    {config.venue_address || DEFAULT_VENUE_ADDRESS}
+                    {venueAddress}
                   </p>
                 </div>
               </div>

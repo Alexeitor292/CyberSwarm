@@ -503,8 +503,8 @@ export default function Admin() {
                       placeholder="Google Maps iframe src or full iframe HTML"
                     />
                     <p className="font-mono text-xs text-muted-foreground/70">
-                      The public site will use exactly this embedded Google map. "Get Directions" will use the venue
-                      address shown above.
+                      The public site will use this embedded Google map, and "Get Directions" will follow the pasted
+                      embed target when Google includes it in the iframe data.
                     </p>
                   </div>
                 ) : (
