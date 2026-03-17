@@ -1,18 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { appClient } from '@/api/client';
-import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { AlertTriangle } from 'lucide-react';
+import { useSiteContent } from '@/hooks/use-site-content';
 
 const tickerItemClassName =
   'font-mono text-xs font-semibold text-foreground/88 mx-7 [text-shadow:0_1px_3px_rgba(0,0,0,0.35)]';
 
 export default function AdminTicker() {
-  const { data: updates = [] } = useQuery({
-    queryKey: ['admin-updates'],
-    queryFn: () => appClient.entities.AdminUpdate.filter({ active: true }, '-created_date', 20),
-    refetchInterval: 30000,
-  });
+  const { data } = useSiteContent();
+  const updates =
+    data?.adminUpdates
+      ?.filter((item) => item.active !== false && item.message)
+      ?.sort((a, b) => new Date(b.created_date).getTime() - new Date(a.created_date).getTime())
+      ?.slice(0, 20) || [];
   const containerRef = useRef(null);
   const measureRef = useRef(null);
   const [segmentRepeatCount, setSegmentRepeatCount] = useState(2);

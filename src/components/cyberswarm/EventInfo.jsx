@@ -1,8 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Calendar, Clock, Navigation } from 'lucide-react';
-import { appClient } from '@/api/client';
-import { useQuery } from '@tanstack/react-query';
+import { useSiteContent } from '@/hooks/use-site-content';
 import { format } from 'date-fns';
 
 const DEFAULT_VENUE_NAME = 'Sacramento State University';
@@ -124,12 +123,8 @@ const resolveMapEmbedUrl = ({
 };
 
 export default function EventInfo() {
-  const { data: configs = [] } = useQuery({
-    queryKey: ['event-config'],
-    queryFn: () => appClient.entities.EventConfig.list('-created_date', 1),
-  });
-
-  const config = configs[0] || {};
+  const { data } = useSiteContent();
+  const config = data?.eventConfig || {};
   const googleMapsEmbedApiKey = String(import.meta.env.VITE_GOOGLE_MAPS_EMBED_API_KEY || '').trim();
   const venueNameLine1 = String(config.venue_name_line_1 || config.venue_name || DEFAULT_VENUE_NAME).trim();
   const venueNameLine2 = String(config.venue_name_line_2 || '').trim();

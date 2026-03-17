@@ -1,16 +1,16 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { appClient } from '@/api/client';
-import { useQuery } from '@tanstack/react-query';
 import { Terminal, AlertTriangle, Info } from 'lucide-react';
 import { format } from 'date-fns';
+import { useSiteContent } from '@/hooks/use-site-content';
 
 export default function AdminUpdatesSection() {
-  const { data: updates = [] } = useQuery({
-    queryKey: ['admin-updates-section'],
-    queryFn: () => appClient.entities.AdminUpdate.filter({ active: true }, '-created_date', 10),
-    refetchInterval: 30000,
-  });
+  const { data } = useSiteContent();
+  const updates =
+    data?.adminUpdates
+      ?.filter((item) => item.active !== false && item.message)
+      ?.sort((a, b) => new Date(b.created_date).getTime() - new Date(a.created_date).getTime())
+      ?.slice(0, 10) || [];
 
   return (
     <section id="updates" className="relative z-10 py-24 px-6">

@@ -7,6 +7,7 @@ export function useSiteContent() {
   const query = useQuery({
     queryKey: ['site-content'],
     queryFn: () => appClient.content.get(),
+    staleTime: 30000,
   });
 
   useEffect(() => {

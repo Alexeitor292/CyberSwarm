@@ -301,36 +301,14 @@ export const appClient = {
     subscribe(callback) {
       if (!isBrowser) return () => {};
 
-      let closed = false;
-      let polling = false;
-
-      const emit = async () => {
-        if (closed || polling) return;
-        polling = true;
-        try {
-          callback(await appClient.content.get());
-        } finally {
-          polling = false;
-        }
-      };
-
       const eventListener = () => {
-        emit();
+        callback(readStoredContent());
       };
 
       window.addEventListener(CONTENT_UPDATED_EVENT, eventListener);
       window.addEventListener('storage', eventListener);
-      emit();
-
-      const interval = window.setInterval(() => {
-        if (document.visibilityState === 'visible') {
-          emit();
-        }
-      }, 30000);
 
       return () => {
-        closed = true;
-        window.clearInterval(interval);
         window.removeEventListener(CONTENT_UPDATED_EVENT, eventListener);
         window.removeEventListener('storage', eventListener);
       };

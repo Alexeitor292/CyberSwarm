@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { appClient } from '@/api/client';
-import { useQuery } from '@tanstack/react-query';
 import { useSiteContent } from '@/hooks/use-site-content';
 
 const FORM_THEME_STORAGE_KEY = 'cyberswarm_form_theme';
@@ -17,16 +15,12 @@ const getStoredTheme = () => {
 };
 
 export default function RegistrationForm() {
-  const { data: configs = [] } = useQuery({
-    queryKey: ['event-config'],
-    queryFn: () => appClient.entities.EventConfig.list('-created_date', 1),
-  });
   const { data } = useSiteContent();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formTheme, setFormTheme] = useState(getStoredTheme);
 
   const registration = data?.registration || {};
-  const config = configs[0] || {};
+  const config = data?.eventConfig || {};
   const formUrl = config.google_form_embed_url || '';
 
   useEffect(() => {

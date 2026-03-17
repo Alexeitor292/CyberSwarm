@@ -1,8 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { appClient } from '@/api/client';
-import { useQuery } from '@tanstack/react-query';
 import { Mic2, Users, Coffee, Wrench, Radio } from 'lucide-react';
+import { useSiteContent } from '@/hooks/use-site-content';
 
 const typeIcons = {
   keynote: Mic2,
@@ -21,12 +20,12 @@ const typeLabels = {
 };
 
 export default function AgendaTimeline() {
-  const { data: items = [] } = useQuery({
-    queryKey: ['agenda'],
-    queryFn: () => appClient.entities.AgendaItem.list('order', 50),
-  });
+  const { data } = useSiteContent();
+  const items = data?.agendaItems || [];
 
-  const activeItems = items.filter((item) => item.active !== false);
+  const activeItems = items
+    .filter((item) => item.active !== false)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
 
   return (
     <section id="agenda" className="relative z-10 py-24 px-6">
