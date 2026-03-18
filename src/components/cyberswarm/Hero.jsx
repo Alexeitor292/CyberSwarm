@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { useSiteContent } from '@/hooks/use-site-content';
 
@@ -49,6 +49,12 @@ export default function Hero() {
   const { data } = useSiteContent();
   const hero = data?.hero || {};
   const eventConfig = data?.eventConfig || {};
+  const prefersReducedMotion = useReducedMotion();
+  const countdownTarget = resolveCountdownDate(eventConfig, hero);
+  const countdownTargetLabel = countdownTarget.toLocaleString('en-US', {
+    dateStyle: 'full',
+    timeStyle: 'short',
+  });
 
   useEffect(() => {
     const eventDate = resolveCountdownDate(eventConfig, hero);
@@ -76,55 +82,65 @@ export default function Hero() {
   }, [eventConfig.event_date, eventConfig.event_time, hero.countdown_target]);
 
   const countdownItems = [
-    { label: 'DAYS', value: countdown.days },
-    { label: 'HRS', value: countdown.hours },
-    { label: 'MIN', value: countdown.mins },
-    { label: 'SEC', value: countdown.secs },
+    { label: 'Days', value: countdown.days },
+    { label: 'Hours', value: countdown.hours },
+    { label: 'Minutes', value: countdown.mins },
+    { label: 'Seconds', value: countdown.secs },
   ];
 
   return (
-    <section className="relative min-h-screen flex flex-col items-center justify-center px-6 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent pointer-events-none" />
+    <section
+      className="relative min-h-screen flex flex-col items-center justify-center px-6 overflow-hidden"
+      aria-labelledby="hero-title"
+    >
+      <div
+        className="absolute inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent pointer-events-none"
+        aria-hidden="true"
+      />
 
       <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 40 }}
+        animate={prefersReducedMotion ? {} : { opacity: 1, y: 0 }}
+        transition={
+          prefersReducedMotion
+            ? { duration: 0 }
+            : { duration: 1.2, ease: [0.22, 1, 0.36, 1] }
+        }
         className="relative z-10 text-center max-w-5xl"
       >
         <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3, duration: 0.8 }}
-          className="font-mono text-xs tracking-[0.3em] text-primary/60 mb-6 uppercase"
+          initial={prefersReducedMotion ? false : { opacity: 0 }}
+          animate={prefersReducedMotion ? {} : { opacity: 1 }}
+          transition={prefersReducedMotion ? { duration: 0 } : { delay: 0.3, duration: 0.8 }}
+          className="font-mono text-xs tracking-[0.3em] text-primary/75 mb-6 uppercase"
         >
           {hero.pretitle || 'Sacramento State University Presents'}
         </motion.p>
 
-        <h1 className="font-heading font-bold leading-none mb-4">
+        <h1 id="hero-title" className="font-heading font-bold leading-none mb-4">
           <motion.span
             className="block text-6xl sm:text-8xl md:text-9xl text-transparent"
             style={{ WebkitTextStroke: '1px hsl(var(--primary) / 0.6)' }}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 1 }}
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 30 }}
+            animate={prefersReducedMotion ? {} : { opacity: 1, y: 0 }}
+            transition={prefersReducedMotion ? { duration: 0 } : { delay: 0.5, duration: 1 }}
           >
             {hero.title_line_1 || 'CYBER'}
           </motion.span>
           <motion.span
             className="block text-6xl sm:text-8xl md:text-9xl glow-cyan text-primary"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7, duration: 1 }}
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 30 }}
+            animate={prefersReducedMotion ? {} : { opacity: 1, y: 0 }}
+            transition={prefersReducedMotion ? { duration: 0 } : { delay: 0.7, duration: 1 }}
           >
             {hero.title_line_2 || 'SWARM'}
           </motion.span>
         </h1>
 
         <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.1, duration: 0.8 }}
+          initial={prefersReducedMotion ? false : { opacity: 0 }}
+          animate={prefersReducedMotion ? {} : { opacity: 1 }}
+          transition={prefersReducedMotion ? { duration: 0 } : { delay: 1.1, duration: 0.8 }}
           className="font-mono text-sm md:text-base text-muted-foreground max-w-xl mx-auto mt-6 leading-relaxed"
         >
           {hero.subtitle ||
@@ -132,25 +148,33 @@ export default function Hero() {
         </motion.p>
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.4, duration: 0.8 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
+          animate={prefersReducedMotion ? {} : { opacity: 1, y: 0 }}
+          transition={prefersReducedMotion ? { duration: 0 } : { delay: 1.4, duration: 0.8 }}
           className="flex justify-center gap-6 md:gap-10 mt-12"
+          aria-labelledby="countdown-heading"
         >
-          {countdownItems.map((item) => (
-            <div key={item.label} className="text-center">
-              <div className="font-heading text-3xl md:text-5xl font-bold text-foreground tabular-nums">
-                {String(item.value).padStart(2, '0')}
+          <p id="countdown-heading" className="sr-only">
+            Countdown to the event on {countdownTargetLabel}
+          </p>
+          <dl className="flex justify-center gap-6 md:gap-10">
+            {countdownItems.map((item) => (
+              <div key={item.label} className="text-center">
+                <dd className="font-heading text-3xl md:text-5xl font-bold text-foreground tabular-nums">
+                  {String(item.value).padStart(2, '0')}
+                </dd>
+                <dt className="font-mono text-xs text-primary/75 tracking-widest mt-1 uppercase">
+                  {item.label}
+                </dt>
               </div>
-              <div className="font-mono text-xs text-primary/50 tracking-widest mt-1">{item.label}</div>
-            </div>
-          ))}
+            ))}
+          </dl>
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.8, duration: 0.8 }}
+          initial={prefersReducedMotion ? false : { opacity: 0 }}
+          animate={prefersReducedMotion ? {} : { opacity: 1 }}
+          transition={prefersReducedMotion ? { duration: 0 } : { delay: 1.8, duration: 0.8 }}
           className="mt-14"
         >
           <a
@@ -164,8 +188,9 @@ export default function Hero() {
 
       <motion.div
         className="absolute bottom-10 left-1/2 -translate-x-1/2 z-10"
-        animate={{ y: [0, 8, 0] }}
-        transition={{ duration: 2, repeat: Infinity }}
+        animate={prefersReducedMotion ? {} : { y: [0, 8, 0] }}
+        transition={prefersReducedMotion ? { duration: 0 } : { duration: 2, repeat: Infinity }}
+        aria-hidden="true"
       >
         <ChevronDown className="w-5 h-5 text-primary/30" />
       </motion.div>

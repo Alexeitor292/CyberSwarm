@@ -1,3 +1,5 @@
+import { DEFAULT_MAP_EMBED_URL } from '../lib/google-maps.js';
+
 const createId = (prefix) => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return `${prefix}-${crypto.randomUUID()}`;
@@ -26,12 +28,7 @@ export const DEFAULT_EVENT_CONFIG = {
   venue_name_line_1: 'Sacramento State University',
   venue_name_line_2: '',
   venue_address: '6000 J St, Sacramento, CA 95819',
-  map_display_mode: 'pin',
-  pin_latitude: 38.5616,
-  pin_longitude: -121.4244,
-  pin_zoom: 15,
-  google_maps_embed_url:
-    'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3119.4!2d-121.4244!3d38.5616!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x809ad0a3c3b1b8e7%3A0x1b0e3a3f2b0b0b0b!2sCalifornia%20State%20University%2C%20Sacramento!5e0!3m2!1sen!2sus!4v1700000000000',
+  google_maps_embed_url: DEFAULT_MAP_EMBED_URL,
   google_form_embed_url: '',
 };
 
@@ -213,17 +210,6 @@ const normalizeAdminUpdates = (value) => {
 };
 
 const asObject = (value) => (value && typeof value === 'object' ? value : {});
-const toFiniteNumber = (value, fallback) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
-const toClampedInteger = (value, fallback, min, max) => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(max, Math.max(min, Math.round(parsed)));
-};
-const toMapDisplayMode = (value, fallback) =>
-  value === 'iframe' || value === 'pin' ? value : fallback;
 
 export const normalizeSiteContent = (raw) => {
   const source = asObject(raw);
@@ -241,13 +227,9 @@ export const normalizeSiteContent = (raw) => {
       eventConfig.venue_name_line_1 ?? eventConfig.venue_name ?? DEFAULT_EVENT_CONFIG.venue_name_line_1
     ),
     venue_name_line_2: String(eventConfig.venue_name_line_2 ?? ''),
-    map_display_mode: toMapDisplayMode(
-      eventConfig.map_display_mode,
-      String(eventConfig.google_maps_embed_url || '').trim() ? 'iframe' : DEFAULT_EVENT_CONFIG.map_display_mode
+    google_maps_embed_url: String(
+      eventConfig.google_maps_embed_url || DEFAULT_EVENT_CONFIG.google_maps_embed_url
     ),
-    pin_latitude: toFiniteNumber(eventConfig.pin_latitude, DEFAULT_EVENT_CONFIG.pin_latitude),
-    pin_longitude: toFiniteNumber(eventConfig.pin_longitude, DEFAULT_EVENT_CONFIG.pin_longitude),
-    pin_zoom: toClampedInteger(eventConfig.pin_zoom, DEFAULT_EVENT_CONFIG.pin_zoom, 3, 20),
   };
 
   return {

@@ -3,19 +3,13 @@ import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { appClient } from '@/api/client';
 import { useSiteContent } from '@/hooks/use-site-content';
-import AdminMapPinPicker from '@/components/cyberswarm/AdminMapPinPicker';
+import { normalizeGoogleMapsEmbedUrl } from '@/lib/google-maps';
 
 const ADMIN_USER_KEY = 'cyberswarm_admin_user';
 const APP_USER_KEY = 'cyberswarm_user';
 
 const fieldClasses =
   'w-full bg-background/60 border border-primary/20 rounded px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60';
-const mapModeButtonClasses = (active) =>
-  `rounded border px-3 py-2 text-left transition ${
-    active
-      ? 'border-primary/60 bg-primary/10 text-primary'
-      : 'border-primary/20 text-muted-foreground hover:border-primary/40 hover:text-foreground'
-  }`;
 
 const createId = (prefix) => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -44,12 +38,6 @@ const parseAdminEmails = (raw) =>
     .split(',')
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean);
-
-const toFiniteNumber = (value, fallback) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
-const toMapDisplayMode = (value) => (value === 'iframe' ? 'iframe' : 'pin');
 
 const loadStoredAdminUser = () => {
   if (typeof window === 'undefined') return null;
@@ -88,7 +76,6 @@ export default function Admin() {
   const tokenClientRef = useRef(null);
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-  const googleMapsEmbedApiKey = String(import.meta.env.VITE_GOOGLE_MAPS_EMBED_API_KEY || '').trim();
   const adminEmails = useMemo(() => parseAdminEmails(import.meta.env.VITE_ADMIN_EMAILS), []);
 
   useEffect(() => {
@@ -190,52 +177,6 @@ export default function Admin() {
       ...prev,
       [section]: { ...prev[section], [key]: value },
     }));
-  };
-
-  const setEventConfigFields = (nextFields) => {
-    updateDraft((prev) => ({
-      ...prev,
-      eventConfig: {
-        ...prev.eventConfig,
-        ...nextFields,
-      },
-    }));
-  };
-
-  const setEventNumberField = (key, value, fallback) => {
-    const next = String(value || '').trim();
-    if (!next) {
-      setEventConfigFields({ [key]: fallback, map_display_mode: 'pin' });
-      return;
-    }
-
-    const parsed = Number(next);
-    if (Number.isFinite(parsed)) {
-      const normalized =
-        key === 'pin_zoom'
-          ? Math.min(20, Math.max(3, Math.round(parsed)))
-          : parsed;
-      setEventConfigFields({ [key]: normalized, map_display_mode: 'pin' });
-    }
-  };
-
-  const setEventPin = (lat, lng) => {
-    setEventConfigFields({
-      map_display_mode: 'pin',
-      pin_latitude: Number(lat.toFixed(6)),
-      pin_longitude: Number(lng.toFixed(6)),
-    });
-  };
-
-  const setMapDisplayMode = (mode) => {
-    setEventConfigFields({ map_display_mode: toMapDisplayMode(mode) });
-  };
-
-  const setGoogleMapsEmbedValue = (value) => {
-    setEventConfigFields({
-      map_display_mode: 'iframe',
-      google_maps_embed_url: value,
-    });
   };
 
   const setListItemField = (listKey, index, key, value) => {
@@ -373,7 +314,7 @@ export default function Admin() {
     );
   }
 
-  const selectedMapDisplayMode = toMapDisplayMode(draft?.eventConfig?.map_display_mode);
+  const normalizedMapEmbedUrl = normalizeGoogleMapsEmbedUrl(draft?.eventConfig?.google_maps_embed_url);
 
   return (
     <div className="min-h-screen bg-background text-foreground px-4 sm:px-6 py-8">
@@ -473,97 +414,36 @@ export default function Admin() {
               <input className={fieldClasses} value={draft.eventConfig.venue_address || ''} onChange={(e) => setField('eventConfig', 'venue_address', e.target.value)} placeholder="Venue address" />
               <div className="space-y-3">
                 <div>
-                  <p className="font-mono text-xs text-muted-foreground/75 uppercase tracking-widest mb-2">Map source</p>
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setMapDisplayMode('iframe')}
-                      className={mapModeButtonClasses(selectedMapDisplayMode === 'iframe')}
-                    >
-                      <span className="block font-mono text-xs uppercase tracking-widest">Google iframe</span>
-                      <span className="block text-sm mt-1">Paste the embed code from Google Maps Share.</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMapDisplayMode('pin')}
-                      className={mapModeButtonClasses(selectedMapDisplayMode === 'pin')}
-                    >
-                      <span className="block font-mono text-xs uppercase tracking-widest">Manual pin</span>
-                      <span className="block text-sm mt-1">Pick the spot directly on the admin map.</span>
-                    </button>
-                  </div>
+                  <p className="font-mono text-xs text-muted-foreground/75 uppercase tracking-widest mb-2">Embedded map</p>
+                  <textarea
+                    className={`${fieldClasses} min-h-28 font-mono text-xs`}
+                    value={draft.eventConfig.google_maps_embed_url || ''}
+                    onChange={(e) => setField('eventConfig', 'google_maps_embed_url', e.target.value)}
+                    placeholder="Paste the Google Maps iframe HTML or the iframe src URL"
+                  />
                 </div>
-
-                {selectedMapDisplayMode === 'iframe' ? (
-                  <div className="space-y-3">
-                    <input
-                      className={fieldClasses}
-                      value={draft.eventConfig.google_maps_embed_url || ''}
-                      onChange={(e) => setGoogleMapsEmbedValue(e.target.value)}
-                      placeholder="Google Maps iframe src or full iframe HTML"
-                    />
-                    <p className="font-mono text-xs text-muted-foreground/70">
-                      The public site will use this embedded Google map, and "Get Directions" will follow the pasted
-                      embed target when Google includes it in the iframe data.
-                    </p>
+                <p className="font-mono text-xs text-muted-foreground/70">
+                  Use Google Maps &gt; Share &gt; Embed a map, then paste the full iframe HTML or just the iframe
+                  <code> src</code> URL here. The manual pin option has been removed.
+                </p>
+                {normalizedMapEmbedUrl ? (
+                  <div className="space-y-2">
+                    <p className="font-mono text-xs text-primary/75 uppercase tracking-widest">Map preview</p>
+                    <div className="rounded-lg overflow-hidden border border-primary/15 bg-background/40">
+                      <iframe
+                        src={normalizedMapEmbedUrl}
+                        title="Admin preview of embedded event map"
+                        className="w-full"
+                        style={{ border: 0, minHeight: '260px' }}
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
+                    </div>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    <div className="grid sm:grid-cols-3 gap-3">
-                      <input
-                        type="number"
-                        step="any"
-                        className={fieldClasses}
-                        value={draft.eventConfig.pin_latitude ?? ''}
-                        onChange={(e) => setEventNumberField('pin_latitude', e.target.value, 38.5616)}
-                        placeholder="Pin latitude"
-                      />
-                      <input
-                        type="number"
-                        step="any"
-                        className={fieldClasses}
-                        value={draft.eventConfig.pin_longitude ?? ''}
-                        onChange={(e) => setEventNumberField('pin_longitude', e.target.value, -121.4244)}
-                        placeholder="Pin longitude"
-                      />
-                      <input
-                        type="number"
-                        min="3"
-                        max="20"
-                        className={fieldClasses}
-                        value={draft.eventConfig.pin_zoom ?? 15}
-                        onChange={(e) => setEventNumberField('pin_zoom', e.target.value, 15)}
-                        placeholder="Map zoom"
-                      />
-                    </div>
-                    <AdminMapPinPicker
-                      latitude={toFiniteNumber(draft.eventConfig.pin_latitude, 38.5616)}
-                      longitude={toFiniteNumber(draft.eventConfig.pin_longitude, -121.4244)}
-                      zoom={toFiniteNumber(draft.eventConfig.pin_zoom, 15)}
-                      onPinChange={setEventPin}
-                    />
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEventConfigFields({
-                            map_display_mode: 'pin',
-                            pin_latitude: 38.5616,
-                            pin_longitude: -121.4244,
-                            pin_zoom: 15,
-                          })
-                        }
-                        className="px-3 py-2 rounded border border-primary/30 text-muted-foreground hover:text-primary transition"
-                      >
-                        Reset Pin to Sac State
-                      </button>
-                      <p className="font-mono text-xs text-muted-foreground/70">
-                        {googleMapsEmbedApiKey
-                          ? 'The public site will center the Google map and directions on this pin.'
-                          : 'The public site will center directions on this pin. Without VITE_GOOGLE_MAPS_EMBED_API_KEY, the embedded map will fall back to OpenStreetMap for this mode.'}
-                      </p>
-                    </div>
-                  </div>
+                  <p className="font-mono text-xs text-accent/90">
+                    Paste a valid Google Maps embed iframe to preview the map that visitors will see.
+                  </p>
                 )}
               </div>
               <input className={fieldClasses} value={draft.eventConfig.google_form_embed_url || ''} onChange={(e) => setField('eventConfig', 'google_form_embed_url', e.target.value)} placeholder="Google Form embed URL" />

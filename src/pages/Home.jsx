@@ -15,6 +15,13 @@ import Footer from '../components/cyberswarm/Footer';
 export default function Home() {
   return (
     <div className="relative min-h-screen bg-background overflow-x-hidden">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[70] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:text-foreground"
+      >
+        Skip to main content
+      </a>
+
       {/* Background */}
       <ParticleField />
 
@@ -24,19 +31,21 @@ export default function Home() {
       <AdminDashboardButton />
 
       {/* Content */}
-      <Hero />
-      <CompanyLogos />
-      <AgendaTimeline />
-      <AdminUpdatesSection />
-      <EventInfo />
-      <RegistrationForm />
+      <main id="main-content" tabIndex={-1}>
+        <Hero />
+        <CompanyLogos />
+        <AgendaTimeline />
+        <AdminUpdatesSection />
+        <EventInfo />
+        <RegistrationForm />
+      </main>
       <Footer />
 
       {/* Bottom ticker */}
       <AdminTicker />
 
       {/* Bottom spacing for ticker */}
-      <div className="h-10" />
+      <div className="h-14" aria-hidden="true" />
     </div>
   );
 }
