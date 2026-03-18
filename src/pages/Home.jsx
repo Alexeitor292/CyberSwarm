@@ -10,8 +10,39 @@ import EventInfo from '../components/cyberswarm/EventInfo';
 import RegistrationForm from '../components/cyberswarm/RegistrationForm';
 import AdminTicker from '../components/cyberswarm/AdminTicker';
 import Footer from '../components/cyberswarm/Footer';
+import { useSiteContent } from '../hooks/use-site-content';
 
 export default function Home() {
+  const { data, isLoading } = useSiteContent();
+
+  if (isLoading && !data) {
+    return (
+      <div className="relative min-h-screen bg-background overflow-x-hidden">
+        <ParticleField />
+        <HUDOverlay />
+        <AdminDashboardButton />
+
+        <main className="relative z-10 min-h-screen flex items-center justify-center px-6">
+          <div className="glass rounded-2xl px-8 py-10 text-center max-w-md w-full">
+            <p className="font-mono text-xs tracking-[0.3em] text-primary/75 uppercase mb-4">
+              Loading Event Intel
+            </p>
+            <div className="flex items-center justify-center mb-4" role="status" aria-live="polite">
+              <div
+                className="w-8 h-8 border-4 border-primary/15 border-t-primary rounded-full animate-spin"
+                aria-hidden="true"
+              />
+              <span className="sr-only">Loading the latest event details</span>
+            </div>
+            <p className="font-mono text-sm text-muted-foreground">
+              Syncing the latest event details before the public page appears.
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="relative min-h-screen bg-background overflow-x-hidden">
       <a

@@ -31,6 +31,17 @@ const readStoredContent = () => {
   }
 };
 
+const readCachedContent = () => {
+  if (!isBrowser) return null;
+
+  try {
+    const raw = window.localStorage.getItem(CONTENT_STORAGE_KEY);
+    return raw ? normalizeSiteContent(JSON.parse(raw)) : null;
+  } catch (_error) {
+    return null;
+  }
+};
+
 const writeStoredContent = (content, options = {}) => {
   if (!isBrowser) return;
   const normalized = normalizeSiteContent(content);
@@ -258,6 +269,9 @@ const createEntityClient = (entityName, idPrefix) => ({
 
 export const appClient = {
   content: {
+    getCached() {
+      return readCachedContent();
+    },
     async get() {
       if (!isBrowser) return deepClone(DEFAULT_SITE_CONTENT);
 

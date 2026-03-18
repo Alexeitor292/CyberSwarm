@@ -2,7 +2,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY src/data/siteData.js ./src/data/siteData.js
+COPY src/data ./src/data
+COPY src/lib/google-maps.js ./src/lib/google-maps.js
 COPY server ./server
 
 ENV PORT=3001
