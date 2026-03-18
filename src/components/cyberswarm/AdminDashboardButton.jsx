@@ -205,7 +205,7 @@ export default function AdminDashboardButton() {
         type="button"
         onClick={goToAdminDashboard}
         disabled={validating}
-        className="fixed top-5 right-28 z-50 h-10 px-3 border border-primary/25 flex items-center gap-2 hover:border-primary/50 transition-colors bg-background/60 backdrop-blur-sm text-primary/75 disabled:opacity-60"
+        className="fixed top-5 right-5 z-50 h-10 px-3 border border-primary/25 flex items-center gap-2 hover:border-primary/50 transition-colors bg-background/60 backdrop-blur-sm text-primary/75 disabled:opacity-60"
         title={`Continue as ${adminUser.email}`}
       >
         <ShieldCheck className="w-3.5 h-3.5" />

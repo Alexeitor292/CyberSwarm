@@ -1,7 +1,6 @@
 import React from 'react';
 import ParticleField from '../components/cyberswarm/ParticleField';
 import HUDOverlay from '../components/cyberswarm/HUDOverlay';
-import NavMenu from '../components/cyberswarm/NavMenu';
 import AdminDashboardButton from '../components/cyberswarm/AdminDashboardButton';
 import Hero from '../components/cyberswarm/Hero';
 import CompanyLogos from '../components/cyberswarm/CompanyLogo';
@@ -27,7 +26,6 @@ export default function Home() {
 
       {/* HUD */}
       <HUDOverlay />
-      <NavMenu />
       <AdminDashboardButton />
 
       {/* Content */}
