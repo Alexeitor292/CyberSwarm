@@ -6,7 +6,7 @@ import { useSiteContent } from '@/hooks/use-site-content';
 const tickerItemClassName =
   'font-mono text-xs font-semibold text-foreground mx-7 [text-shadow:0_1px_3px_rgba(0,0,0,0.35)]';
 const controlButtonClassName =
-  'relative z-10 inline-flex min-h-10 min-w-[88px] items-center justify-center gap-1.5 rounded-md border border-primary/20 px-3 py-2 font-mono text-[11px] uppercase tracking-widest text-foreground transition hover:border-primary/45 hover:text-primary touch-manipulation';
+  'inline-flex items-center gap-1 rounded border border-primary/20 px-2 py-1 font-mono text-[11px] uppercase tracking-widest text-foreground transition hover:border-primary/45 hover:text-primary';
 
 export default function AdminTicker() {
   const { data } = useSiteContent();
@@ -137,11 +137,7 @@ export default function AdminTicker() {
         <div className="flex min-w-0 flex-1 items-stretch">
           <div className="min-w-0 flex-1 px-3 py-2">
             {shouldAnimate ? (
-              <div
-                ref={containerRef}
-                className="relative overflow-hidden whitespace-nowrap pointer-events-none select-none"
-                aria-hidden="true"
-              >
+              <div ref={containerRef} className="relative overflow-hidden whitespace-nowrap" aria-hidden="true">
                 <div
                   ref={measureRef}
                   className="absolute -z-10 opacity-0 pointer-events-none whitespace-nowrap"
@@ -187,7 +183,7 @@ export default function AdminTicker() {
             </p>
           </div>
 
-          <div className="relative z-10 flex items-center gap-2 border-l border-primary/10 px-3 shrink-0 bg-background/88">
+          <div className="flex items-center gap-2 border-l border-primary/10 px-3 shrink-0">
             {!prefersReducedMotion ? (
               <button
                 type="button"
