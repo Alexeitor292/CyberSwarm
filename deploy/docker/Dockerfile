@@ -13,7 +13,7 @@ ENV VITE_ADMIN_EMAILS=${VITE_ADMIN_EMAILS}
 
 RUN npm run build
 
-FROM nginx:1.27-alpine
+FROM nginx:stable-alpine
 
 COPY deploy/nginx/app.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html

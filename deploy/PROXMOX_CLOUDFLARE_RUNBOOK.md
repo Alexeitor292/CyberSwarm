@@ -131,7 +131,15 @@ Notes:
 - With tunnel, you do not need inbound port-forwarding on your router/firewall.
 - Keep `REVERSE_PROXY_BIND=127.0.0.1:8081` to avoid exposing service directly.
 
-## 6. Reverse proxy behavior
+## 6. Note on the Kubernetes Ingress NGINX Controller EOL
+
+The [Kubernetes Ingress NGINX Controller](https://github.com/kubernetes/ingress-nginx) reached End-of-Life in March 2026 and is being retired. **This project is not affected.**
+
+CyberSwarm does not run on Kubernetes. It uses the official standalone **nginx Docker image** (`nginx:stable-alpine`) as a plain reverse proxy inside Docker Compose. This is a completely separate product from the Kubernetes Ingress NGINX Controller and will continue to receive upstream updates from the nginx project.
+
+No migration is required.
+
+## 7. Reverse proxy behavior
 
 `deploy/nginx/reverse-proxy.conf` handles:
 - request forwarding to app container
@@ -142,14 +150,14 @@ Notes:
 - static assets
 - SPA fallback so routes like `/admin` work (`try_files ... /index.html`)
 
-## 7. Updates
+## 8. Updates
 
 ```bash
 cd /opt/cyberswarm
 USE_TUNNEL=true ./deploy/scripts/update-prod.sh
 ```
 
-## 8. Rollback (quick)
+## 9. Rollback (quick)
 
 If update fails and previous image exists:
 
@@ -159,7 +167,7 @@ docker tag <previous_image_id> cyberswarm-app:prod
 USE_TUNNEL=true ./deploy/scripts/deploy-prod.sh
 ```
 
-## 9. Operational caveat
+## 10. Operational caveat
 
 Admin content is stored server-side by the `api` container in Docker volume `cyberswarm_data`.
 This means edits are shared across devices/users once saved.
