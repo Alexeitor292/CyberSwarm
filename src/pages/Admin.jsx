@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { appClient } from '@/api/client';
 import { useSiteContent } from '@/hooks/use-site-content';
-import { normalizeGoogleMapsEmbedUrl } from '@/lib/google-maps';
+import { normalizeGoogleMapsDirectionsUrl, normalizeGoogleMapsEmbedUrl } from '@/lib/google-maps';
 
 const ADMIN_USER_KEY = 'cyberswarm_admin_user';
 const APP_USER_KEY = 'cyberswarm_user';
@@ -315,6 +315,7 @@ export default function Admin() {
   }
 
   const normalizedMapEmbedUrl = normalizeGoogleMapsEmbedUrl(draft?.eventConfig?.google_maps_embed_url);
+  const normalizedDirectionsUrl = normalizeGoogleMapsDirectionsUrl(draft?.eventConfig?.google_maps_directions_url);
 
   return (
     <div className="min-h-screen bg-background text-foreground px-4 sm:px-6 py-8">
@@ -445,6 +446,33 @@ export default function Admin() {
                     Paste a valid Google Maps embed iframe to preview the map that visitors will see.
                   </p>
                 )}
+                <div>
+                  <p className="font-mono text-xs text-muted-foreground/75 uppercase tracking-widest mb-2">Directions link</p>
+                  <input
+                    className={fieldClasses}
+                    value={draft.eventConfig.google_maps_directions_url || ''}
+                    onChange={(e) => setField('eventConfig', 'google_maps_directions_url', e.target.value)}
+                    placeholder="Paste the exact Google Maps directions URL for The WELL"
+                  />
+                </div>
+                <p className="font-mono text-xs text-muted-foreground/70">
+                  Use Google Maps &gt; Directions to The WELL &gt; Share &gt; Copy link, then paste that exact URL
+                  here so phones and desktop browsers open the same destination.
+                </p>
+                {normalizedDirectionsUrl ? (
+                  <a
+                    href={normalizedDirectionsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-3 py-2 rounded border border-primary/40 text-primary hover:bg-primary/10 transition"
+                  >
+                    Preview directions link
+                  </a>
+                ) : (
+                  <p className="font-mono text-xs text-accent/90">
+                    Paste a valid directions URL to preview the destination visitors will open.
+                  </p>
+                )}
               </div>
               <input className={fieldClasses} value={draft.eventConfig.google_form_embed_url || ''} onChange={(e) => setField('eventConfig', 'google_form_embed_url', e.target.value)} placeholder="Google Form embed URL" />
             </Section>
@@ -463,6 +491,8 @@ export default function Admin() {
               <input className={fieldClasses} value={draft.footer.brand_name || ''} onChange={(e) => setField('footer', 'brand_name', e.target.value)} placeholder="Brand name" />
               <input className={fieldClasses} value={draft.footer.copyright_template || ''} onChange={(e) => setField('footer', 'copyright_template', e.target.value)} placeholder="Copyright template (use {year})" />
               <input className={fieldClasses} value={draft.footer.organization_text || ''} onChange={(e) => setField('footer', 'organization_text', e.target.value)} placeholder="Organization text" />
+              <input className={fieldClasses} value={draft.footer.accessibility_help_text || ''} onChange={(e) => setField('footer', 'accessibility_help_text', e.target.value)} placeholder="Accessibility help text" />
+              <input className={fieldClasses} value={draft.footer.accessibility_email || ''} onChange={(e) => setField('footer', 'accessibility_email', e.target.value)} placeholder="Accessibility help email" />
             </Section>
 
             <Section title="Organizations">
@@ -638,7 +668,7 @@ export default function Admin() {
               </button>
             </Section>
 
-            <Section title="Admin Updates + Ticker">
+            <Section title="Admin Updates">
               <div className="space-y-3">
                 {draft.adminUpdates.map((item, index) => (
                   <div key={item.id || index} className="border border-primary/15 rounded p-3 space-y-2">
@@ -646,7 +676,7 @@ export default function Admin() {
                       className={`${fieldClasses} min-h-16`}
                       value={item.message || ''}
                       onChange={(e) => setListItemField('adminUpdates', index, 'message', e.target.value)}
-                      placeholder="Ticker/update message"
+                      placeholder="Update message"
                     />
                     <div className="grid sm:grid-cols-2 gap-2">
                       <select

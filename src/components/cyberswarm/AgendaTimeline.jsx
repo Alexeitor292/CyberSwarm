@@ -43,7 +43,7 @@ export default function AgendaTimeline() {
           transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.8 }}
           className="mb-16"
         >
-          <p className="font-mono text-xs tracking-[0.3em] text-primary/75 uppercase mb-3">// Schedule</p>
+          <p className="font-mono text-xs tracking-[0.3em] text-primary/85 uppercase mb-3">// Schedule</p>
           <h2 id="agenda-heading" className="font-heading text-4xl md:text-5xl font-bold text-foreground">
             The Agenda
           </h2>
@@ -51,7 +51,7 @@ export default function AgendaTimeline() {
 
         <div className="relative">
           <div
-            className="absolute left-0 md:left-24 top-0 bottom-0 w-px bg-gradient-to-b from-primary/30 via-primary/10 to-transparent"
+            className="absolute left-0 md:left-24 top-0 bottom-0 w-px bg-gradient-to-b from-primary/55 via-primary/25 to-transparent"
             aria-hidden="true"
           />
 
@@ -71,24 +71,24 @@ export default function AgendaTimeline() {
                   transition={
                     prefersReducedMotion ? { duration: 0 } : { delay: i * 0.05, duration: 0.6 }
                   }
-                  className="group relative flex gap-6 md:gap-10 pl-6 md:pl-0"
+                  className="relative flex gap-6 md:gap-10 pl-6 md:pl-0"
                 >
                   <div className="hidden md:block w-20 text-right shrink-0 pt-5" aria-hidden="true">
                     <span className="font-mono text-xs text-muted-foreground">{item.start_time}</span>
                   </div>
 
                   <div className="absolute left-0 md:left-24 top-5 -translate-x-1/2" aria-hidden="true">
-                    <div className="w-2 h-2 bg-primary/40 rotate-45 group-hover:bg-primary group-hover:scale-150 transition-all duration-300" />
+                    <div className="w-2 h-2 bg-primary/65 rotate-45" />
                   </div>
 
                   <div className="flex-1 pb-8 pl-4 md:pl-8">
-                    <div className="glass rounded-lg p-5 group-hover:border-primary/30 transition-all duration-500 box-glow-cyan group-hover:box-glow-cyan">
+                    <div className="glass rounded-lg p-5 box-glow-cyan">
                       <div className="flex items-start justify-between gap-4 flex-wrap">
                         <div className="flex-1 min-w-0">
                           {timeRange ? <p className="sr-only">Time: {timeRange}</p> : null}
                           <div className="flex items-center gap-2 mb-2">
-                            <Icon className="w-3.5 h-3.5 text-primary/75" aria-hidden="true" />
-                            <span className="font-mono text-xs text-primary/75 uppercase tracking-widest">
+                            <Icon className="w-3.5 h-3.5 text-primary/85" aria-hidden="true" />
+                            <span className="font-mono text-xs text-primary/85 uppercase tracking-widest">
                               {sessionLabel}
                             </span>
                           </div>
@@ -96,7 +96,7 @@ export default function AgendaTimeline() {
                           {item.speaker && (
                             <p className="font-mono text-sm text-muted-foreground">
                               {item.speaker}
-                              {item.company && <span className="text-primary/65"> - {item.company}</span>}
+                              {item.company && <span className="text-primary/80"> - {item.company}</span>}
                             </p>
                           )}
                           {item.description && (
@@ -124,7 +124,7 @@ export default function AgendaTimeline() {
           {activeItems.length === 0 && (
             <div className="pl-10 md:pl-40">
               <div className="glass rounded-lg p-8 text-center">
-                <p className="font-mono text-sm text-muted-foreground/70">[ AGENDA LOADING... CHECK BACK SOON ]</p>
+                <p className="font-mono text-sm text-muted-foreground">[ AGENDA LOADING... CHECK BACK SOON ]</p>
               </div>
             </div>
           )}

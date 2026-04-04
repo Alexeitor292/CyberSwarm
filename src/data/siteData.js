@@ -1,4 +1,11 @@
-import { DEFAULT_MAP_EMBED_URL } from '../lib/google-maps.js';
+import {
+  DEFAULT_DIRECTIONS_DESTINATION,
+  DEFAULT_DIRECTIONS_URL,
+  DEFAULT_MAP_EMBED_URL,
+  LEGACY_DEFAULT_MAP_EMBED_URL,
+  buildDirectionsUrlFromEmbedUrl,
+  buildGoogleMapsDirectionsUrl,
+} from '../lib/google-maps.js';
 
 const createId = (prefix) => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -24,11 +31,12 @@ export const DEFAULT_EVENT_CONFIG = {
   created_date: '2026-02-20T09:00:00.000Z',
   event_date: '2026-04-15',
   event_time: '9:00 AM - 5:00 PM PST',
-  venue_name: 'Sacramento State University',
-  venue_name_line_1: 'Sacramento State University',
-  venue_name_line_2: '',
+  venue_name: 'The WELL',
+  venue_name_line_1: 'The WELL',
+  venue_name_line_2: 'Sacramento State University',
   venue_address: '6000 J St, Sacramento, CA 95819',
   google_maps_embed_url: DEFAULT_MAP_EMBED_URL,
+  google_maps_directions_url: DEFAULT_DIRECTIONS_URL,
   google_form_embed_url: '',
 };
 
@@ -45,6 +53,9 @@ export const DEFAULT_FOOTER_CONFIG = {
   brand_name: 'CyberSwarm',
   copyright_template: '(c) {year} Sac State CyberSwarm. All rights reserved.',
   organization_text: 'Sacramento State University',
+  accessibility_help_text: 'Need help accessing this site or registering?',
+  accessibility_email: 'accessibility@cyberswarmsac.com',
+  accessibility_phone: '',
 };
 
 export const DEFAULT_ORGANIZATIONS_SECTION_CONFIG = {
@@ -211,6 +222,9 @@ const normalizeAdminUpdates = (value) => {
 
 const asObject = (value) => (value && typeof value === 'object' ? value : {});
 
+const LEGACY_DEFAULT_VENUE_NAME = 'Sacramento State University';
+const LEGACY_DEFAULT_ACCESSIBILITY_PHONE = '(916) 278-6011';
+
 export const normalizeSiteContent = (raw) => {
   const source = asObject(raw);
 
@@ -230,7 +244,40 @@ export const normalizeSiteContent = (raw) => {
     google_maps_embed_url: String(
       eventConfig.google_maps_embed_url || DEFAULT_EVENT_CONFIG.google_maps_embed_url
     ),
+    google_maps_directions_url: String(
+      eventConfig.google_maps_directions_url ||
+        buildGoogleMapsDirectionsUrl(eventConfig.directions_destination) ||
+        buildDirectionsUrlFromEmbedUrl(
+          eventConfig.google_maps_embed_url || DEFAULT_EVENT_CONFIG.google_maps_embed_url,
+          eventConfig.venue_address || DEFAULT_EVENT_CONFIG.venue_address,
+          DEFAULT_DIRECTIONS_DESTINATION
+        ) ||
+        DEFAULT_EVENT_CONFIG.google_maps_directions_url
+    ),
   };
+  const isLegacyVenueDefault =
+    normalizedEventConfig.venue_name_line_1.trim() === LEGACY_DEFAULT_VENUE_NAME &&
+    normalizedEventConfig.venue_name_line_2.trim() === '' &&
+    String(normalizedEventConfig.venue_address || '').trim() === DEFAULT_EVENT_CONFIG.venue_address;
+
+  if (isLegacyVenueDefault) {
+    normalizedEventConfig.venue_name = DEFAULT_EVENT_CONFIG.venue_name;
+    normalizedEventConfig.venue_name_line_1 = DEFAULT_EVENT_CONFIG.venue_name_line_1;
+    normalizedEventConfig.venue_name_line_2 = DEFAULT_EVENT_CONFIG.venue_name_line_2;
+  }
+
+  if (normalizedEventConfig.google_maps_embed_url === LEGACY_DEFAULT_MAP_EMBED_URL) {
+    normalizedEventConfig.google_maps_embed_url = DEFAULT_EVENT_CONFIG.google_maps_embed_url;
+  }
+
+  if (!normalizedEventConfig.google_maps_directions_url.trim() || isLegacyVenueDefault) {
+    normalizedEventConfig.google_maps_directions_url =
+      buildDirectionsUrlFromEmbedUrl(
+        normalizedEventConfig.google_maps_embed_url,
+        normalizedEventConfig.venue_address,
+        DEFAULT_DIRECTIONS_DESTINATION
+      ) || DEFAULT_EVENT_CONFIG.google_maps_directions_url;
+  }
 
   return {
     hero: {
@@ -247,6 +294,13 @@ export const normalizeSiteContent = (raw) => {
     footer: {
       ...DEFAULT_FOOTER_CONFIG,
       ...asObject(source.footer),
+      accessibility_email:
+        String(asObject(source.footer).accessibility_email || '').trim() ||
+        DEFAULT_FOOTER_CONFIG.accessibility_email,
+      accessibility_phone:
+        String(asObject(source.footer).accessibility_phone || '').trim() === LEGACY_DEFAULT_ACCESSIBILITY_PHONE
+          ? ''
+          : String(asObject(source.footer).accessibility_phone || '').trim(),
     },
     organizationsSection: {
       ...DEFAULT_ORGANIZATIONS_SECTION_CONFIG,

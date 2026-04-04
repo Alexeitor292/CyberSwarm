@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { useSiteContent } from '@/hooks/use-site-content';
@@ -50,6 +50,19 @@ export default function Hero() {
   const hero = data?.hero || {};
   const eventConfig = data?.eventConfig || {};
   const prefersReducedMotion = useReducedMotion();
+  const handleJumpToAgenda = useCallback((event) => {
+    event.preventDefault();
+
+    const agendaSection = document.getElementById('agenda');
+    if (!agendaSection) return;
+
+    if (window.location.hash !== '#agenda') {
+      window.history.replaceState(null, '', '#agenda');
+    }
+
+    agendaSection.focus({ preventScroll: true });
+    agendaSection.scrollIntoView({ block: 'start' });
+  }, []);
   const countdownTarget = resolveCountdownDate(eventConfig, hero);
   const countdownTargetLabel = countdownTarget.toLocaleString('en-US', {
     dateStyle: 'full',
@@ -112,15 +125,14 @@ export default function Hero() {
           initial={prefersReducedMotion ? false : { opacity: 0 }}
           animate={prefersReducedMotion ? {} : { opacity: 1 }}
           transition={prefersReducedMotion ? { duration: 0 } : { delay: 0.3, duration: 0.8 }}
-          className="font-mono text-xs tracking-[0.3em] text-primary/75 mb-6 uppercase"
+          className="font-mono text-xs tracking-[0.3em] text-primary/85 mb-6 uppercase"
         >
           {hero.pretitle || 'Sacramento State University Presents'}
         </motion.p>
 
         <h1 id="hero-title" className="font-heading font-bold leading-none mb-4">
           <motion.span
-            className="block text-6xl sm:text-8xl md:text-9xl text-transparent"
-            style={{ WebkitTextStroke: '1px hsl(var(--primary) / 0.6)' }}
+            className="block text-6xl sm:text-8xl md:text-9xl text-foreground"
             initial={prefersReducedMotion ? false : { opacity: 0, y: 30 }}
             animate={prefersReducedMotion ? {} : { opacity: 1, y: 0 }}
             transition={prefersReducedMotion ? { duration: 0 } : { delay: 0.5, duration: 1 }}
@@ -163,7 +175,7 @@ export default function Hero() {
                 <dd className="font-heading text-3xl md:text-5xl font-bold text-foreground tabular-nums">
                   {String(item.value).padStart(2, '0')}
                 </dd>
-                <dt className="font-mono text-xs text-primary/75 tracking-widest mt-1 uppercase">
+                <dt className="font-mono text-xs text-primary/85 tracking-widest mt-1 uppercase">
                   {item.label}
                 </dt>
               </div>
@@ -179,21 +191,23 @@ export default function Hero() {
         >
           <a
             href="#register"
-            className="inline-flex items-center gap-2 px-8 py-3 border border-primary/40 text-primary font-mono text-sm tracking-widest uppercase hover:bg-primary/10 transition-all duration-300 hover:border-primary/80"
+            className="inline-flex items-center gap-2 rounded-md border border-primary/60 bg-background/35 px-8 py-3 text-primary font-mono text-sm tracking-widest uppercase transition-all duration-300 hover:border-primary/85 hover:bg-primary/12"
           >
             {hero.cta_label || 'Join the Swarm'}
           </a>
         </motion.div>
       </motion.div>
 
-      <motion.div
+      <motion.a
+        href="#agenda"
+        onClick={handleJumpToAgenda}
         className="absolute bottom-10 left-1/2 -translate-x-1/2 z-10"
         animate={prefersReducedMotion ? {} : { y: [0, 8, 0] }}
         transition={prefersReducedMotion ? { duration: 0 } : { duration: 2, repeat: Infinity }}
-        aria-hidden="true"
+        aria-label="Jump to the agenda section"
       >
-        <ChevronDown className="w-5 h-5 text-primary/30" />
-      </motion.div>
+        <ChevronDown className="w-5 h-5 text-primary/65" aria-hidden="true" />
+      </motion.a>
     </section>
   );
 }

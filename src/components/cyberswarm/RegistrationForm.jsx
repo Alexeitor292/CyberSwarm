@@ -74,17 +74,14 @@ export default function RegistrationForm() {
             id="registration-heading"
             className="font-heading text-5xl sm:text-7xl md:text-8xl font-bold leading-none"
           >
-            <span
-              className="block text-transparent"
-              style={{ WebkitTextStroke: '1px hsl(var(--primary) / 0.6)' }}
-            >
+            <span className="block text-foreground">
               {registration.heading_top || 'JOIN THE'}
             </span>
             <span className="block glow-cyan text-primary mt-2">
               {registration.heading_bottom || 'SWARM'}
             </span>
           </h2>
-          <p className="font-mono text-sm text-muted-foreground/85 mt-6 max-w-md mx-auto">
+          <p className="font-mono text-sm text-muted-foreground mt-6 max-w-md mx-auto">
             {registration.description ||
               'Register now to secure your spot at the premier cybersecurity event at Sacramento State.'}
           </p>
@@ -101,7 +98,7 @@ export default function RegistrationForm() {
             <>
               <div className="px-6 py-8 sm:px-8 sm:py-10">
                 <div className="max-w-3xl mx-auto text-center">
-                  <p className="font-mono text-xs text-primary/75 uppercase tracking-[0.26em]">
+                  <p className="font-mono text-xs text-primary/85 uppercase tracking-[0.26em]">
                     Registration Access
                   </p>
                   <h3 className="font-heading text-2xl sm:text-3xl text-foreground mt-4">
@@ -131,13 +128,13 @@ export default function RegistrationForm() {
                       onClick={() => setIsFormOpen((prev) => !prev)}
                       aria-expanded={isFormOpen}
                       aria-controls="registration-form-panel"
-                      className="px-5 py-3 rounded-md border border-primary/30 text-primary hover:bg-primary/10 transition font-mono text-xs tracking-widest uppercase"
+                      className="rounded-md border border-primary/60 bg-background/35 px-5 py-3 text-primary transition font-mono text-xs tracking-widest uppercase hover:border-primary/85 hover:bg-primary/12"
                     >
                       {isFormOpen ? 'Hide Preview' : 'Preview Here'}
                     </button>
                   </div>
 
-                  <p className="font-mono text-xs text-muted-foreground/85 mt-4">
+                  <p className="font-mono text-xs text-muted-foreground mt-4">
                     The new-tab option remains available if the embedded form is harder to use.
                   </p>
                 </div>
@@ -145,7 +142,7 @@ export default function RegistrationForm() {
 
               <div id="registration-form-panel" hidden={!isFormOpen}>
                 {isFormOpen ? (
-                  <div className="border-t border-primary/10 bg-background/25 p-3 sm:p-4">
+                  <div className="border-t border-primary/45 bg-background/35 p-3 sm:p-4">
                     <iframe
                       src={formUrl}
                       width="100%"
@@ -168,10 +165,10 @@ export default function RegistrationForm() {
           ) : (
             <div className="p-12 text-center">
               <div
-                className="w-16 h-16 border border-primary/20 rounded-lg flex items-center justify-center mx-auto mb-6"
+                className="w-16 h-16 border border-primary/50 rounded-lg flex items-center justify-center mx-auto mb-6"
                 aria-hidden="true"
               >
-                <div className="w-2 h-2 bg-primary/40 rounded-full animate-pulse motion-reduce:animate-none" />
+                <div className="w-2 h-2 bg-primary/65 rounded-full animate-pulse motion-reduce:animate-none" />
               </div>
               <p className="font-heading text-2xl text-foreground">
                 {registration.placeholder_title || 'Registration Form Coming Soon'}
