@@ -13,6 +13,8 @@ export const DEFAULT_MAP_EMBED_URL =
   'https://www.google.com/maps?q=The+WELL+Sacramento+State+6000+J+St+Sacramento+CA+95819&output=embed';
 export const LEGACY_DEFAULT_MAP_EMBED_URL =
   'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3119.4!2d-121.4244!3d38.5616!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x809ad0a3c3b1b8e7%3A0x1b0e3a3f2b0b0b0b!2sCalifornia%20State%20University%2C%20Sacramento!5e0!3m2!1sen!2sus!4v1700000000000';
+export const LEGACY_DEFAULT_DIRECTIONS_URL =
+  'https://www.google.com/maps/dir/?api=1&destination=38.5616%2C-121.4244';
 
 const extractAttributeUrl = (value, attributeName) => {
   const next = String(value || '').trim();

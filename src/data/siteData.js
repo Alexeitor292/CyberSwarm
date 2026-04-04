@@ -2,6 +2,7 @@ import {
   DEFAULT_DIRECTIONS_DESTINATION,
   DEFAULT_DIRECTIONS_URL,
   DEFAULT_MAP_EMBED_URL,
+  LEGACY_DEFAULT_DIRECTIONS_URL,
   LEGACY_DEFAULT_MAP_EMBED_URL,
   buildDirectionsUrlFromEmbedUrl,
   buildGoogleMapsDirectionsUrl,
@@ -270,7 +271,11 @@ export const normalizeSiteContent = (raw) => {
     normalizedEventConfig.google_maps_embed_url = DEFAULT_EVENT_CONFIG.google_maps_embed_url;
   }
 
-  if (!normalizedEventConfig.google_maps_directions_url.trim() || isLegacyVenueDefault) {
+  if (
+    normalizedEventConfig.google_maps_directions_url === LEGACY_DEFAULT_DIRECTIONS_URL ||
+    !normalizedEventConfig.google_maps_directions_url.trim() ||
+    isLegacyVenueDefault
+  ) {
     normalizedEventConfig.google_maps_directions_url =
       buildDirectionsUrlFromEmbedUrl(
         normalizedEventConfig.google_maps_embed_url,
