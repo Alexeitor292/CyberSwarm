@@ -2,10 +2,15 @@ import {
   DEFAULT_DIRECTIONS_DESTINATION,
   DEFAULT_DIRECTIONS_URL,
   DEFAULT_MAP_EMBED_URL,
+  DEFAULT_PLACE_ID,
+  DEFAULT_PLACE_URL,
   LEGACY_DEFAULT_DIRECTIONS_URL,
   LEGACY_DEFAULT_MAP_EMBED_URL,
   buildDirectionsUrlFromEmbedUrl,
   buildGoogleMapsDirectionsUrl,
+  buildPlaceUrlFromEmbedUrl,
+  directionsUrlHasPlaceId,
+  normalizeGoogleMapsPlaceId,
 } from '../lib/google-maps.js';
 
 const createId = (prefix) => {
@@ -37,6 +42,8 @@ export const DEFAULT_EVENT_CONFIG = {
   venue_name_line_2: 'Sacramento State University',
   venue_address: '6000 J St, Sacramento, CA 95819',
   google_maps_embed_url: DEFAULT_MAP_EMBED_URL,
+  google_maps_place_url: DEFAULT_PLACE_URL,
+  google_maps_place_id: DEFAULT_PLACE_ID,
   google_maps_directions_url: DEFAULT_DIRECTIONS_URL,
   google_form_embed_url: '',
 };
@@ -235,6 +242,29 @@ export const normalizeSiteContent = (raw) => {
     : Array.isArray(source.EventConfig)
       ? asObject(source.EventConfig[0])
       : {};
+  const eventVenueQuery =
+    [
+      eventConfig.venue_name_line_1 ?? eventConfig.venue_name ?? DEFAULT_EVENT_CONFIG.venue_name_line_1,
+      eventConfig.venue_name_line_2 ?? DEFAULT_EVENT_CONFIG.venue_name_line_2,
+      eventConfig.venue_address || DEFAULT_EVENT_CONFIG.venue_address,
+    ]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+      .join(', ') || DEFAULT_DIRECTIONS_DESTINATION;
+  const normalizedPlaceId = normalizeGoogleMapsPlaceId(
+    eventConfig.google_maps_place_id ||
+      eventConfig.google_maps_place_url ||
+      eventConfig.google_maps_directions_url
+  );
+  const normalizedPlaceUrl =
+    String(eventConfig.google_maps_place_url || '').trim() ||
+    buildPlaceUrlFromEmbedUrl(
+      eventConfig.google_maps_embed_url || DEFAULT_EVENT_CONFIG.google_maps_embed_url,
+      eventConfig.venue_address || DEFAULT_EVENT_CONFIG.venue_address,
+      eventVenueQuery,
+      normalizedPlaceId
+    ) ||
+    DEFAULT_EVENT_CONFIG.google_maps_place_url;
   const normalizedEventConfig = {
     ...DEFAULT_EVENT_CONFIG,
     ...eventConfig,
@@ -245,13 +275,17 @@ export const normalizeSiteContent = (raw) => {
     google_maps_embed_url: String(
       eventConfig.google_maps_embed_url || DEFAULT_EVENT_CONFIG.google_maps_embed_url
     ),
+    google_maps_place_url: String(normalizedPlaceUrl),
+    google_maps_place_id: normalizedPlaceId,
     google_maps_directions_url: String(
       eventConfig.google_maps_directions_url ||
+        buildGoogleMapsDirectionsUrl(eventVenueQuery, normalizedPlaceId) ||
         buildGoogleMapsDirectionsUrl(eventConfig.directions_destination) ||
         buildDirectionsUrlFromEmbedUrl(
           eventConfig.google_maps_embed_url || DEFAULT_EVENT_CONFIG.google_maps_embed_url,
           eventConfig.venue_address || DEFAULT_EVENT_CONFIG.venue_address,
-          DEFAULT_DIRECTIONS_DESTINATION
+          eventVenueQuery,
+          normalizedPlaceId
         ) ||
         DEFAULT_EVENT_CONFIG.google_maps_directions_url
     ),
@@ -260,6 +294,10 @@ export const normalizeSiteContent = (raw) => {
     normalizedEventConfig.venue_name_line_1.trim() === LEGACY_DEFAULT_VENUE_NAME &&
     normalizedEventConfig.venue_name_line_2.trim() === '' &&
     String(normalizedEventConfig.venue_address || '').trim() === DEFAULT_EVENT_CONFIG.venue_address;
+  const isDefaultVenue =
+    normalizedEventConfig.venue_name_line_1.trim() === DEFAULT_EVENT_CONFIG.venue_name_line_1 &&
+    normalizedEventConfig.venue_name_line_2.trim() === DEFAULT_EVENT_CONFIG.venue_name_line_2 &&
+    String(normalizedEventConfig.venue_address || '').trim() === DEFAULT_EVENT_CONFIG.venue_address;
 
   if (isLegacyVenueDefault) {
     normalizedEventConfig.venue_name = DEFAULT_EVENT_CONFIG.venue_name;
@@ -267,20 +305,44 @@ export const normalizeSiteContent = (raw) => {
     normalizedEventConfig.venue_name_line_2 = DEFAULT_EVENT_CONFIG.venue_name_line_2;
   }
 
+  if (!String(normalizedEventConfig.google_maps_place_id || '').trim() && (isDefaultVenue || isLegacyVenueDefault)) {
+    normalizedEventConfig.google_maps_place_id = DEFAULT_EVENT_CONFIG.google_maps_place_id;
+  }
+
   if (normalizedEventConfig.google_maps_embed_url === LEGACY_DEFAULT_MAP_EMBED_URL) {
     normalizedEventConfig.google_maps_embed_url = DEFAULT_EVENT_CONFIG.google_maps_embed_url;
   }
 
   if (
+    !normalizedEventConfig.google_maps_place_url.trim() ||
+    isLegacyVenueDefault ||
+    ((isDefaultVenue || isLegacyVenueDefault) &&
+      normalizeGoogleMapsPlaceId(normalizedEventConfig.google_maps_place_url) !==
+        normalizedEventConfig.google_maps_place_id)
+  ) {
+    normalizedEventConfig.google_maps_place_url =
+      buildPlaceUrlFromEmbedUrl(
+        normalizedEventConfig.google_maps_embed_url,
+        normalizedEventConfig.venue_address,
+        eventVenueQuery,
+        normalizedEventConfig.google_maps_place_id
+      ) || DEFAULT_EVENT_CONFIG.google_maps_place_url;
+  }
+
+  if (
     normalizedEventConfig.google_maps_directions_url === LEGACY_DEFAULT_DIRECTIONS_URL ||
     !normalizedEventConfig.google_maps_directions_url.trim() ||
-    isLegacyVenueDefault
+    isLegacyVenueDefault ||
+    ((isDefaultVenue || isLegacyVenueDefault) &&
+      !directionsUrlHasPlaceId(normalizedEventConfig.google_maps_directions_url))
   ) {
     normalizedEventConfig.google_maps_directions_url =
+      buildGoogleMapsDirectionsUrl(eventVenueQuery, normalizedEventConfig.google_maps_place_id) ||
       buildDirectionsUrlFromEmbedUrl(
         normalizedEventConfig.google_maps_embed_url,
         normalizedEventConfig.venue_address,
-        DEFAULT_DIRECTIONS_DESTINATION
+        eventVenueQuery,
+        normalizedEventConfig.google_maps_place_id
       ) || DEFAULT_EVENT_CONFIG.google_maps_directions_url;
   }
 

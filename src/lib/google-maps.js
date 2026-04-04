@@ -2,13 +2,50 @@ export const DEFAULT_VENUE_NAME = 'The WELL';
 export const DEFAULT_VENUE_ADDRESS = '6000 J St, Sacramento, CA 95819';
 export const DEFAULT_DIRECTIONS_DESTINATION =
   'The WELL, Sacramento State, 6000 J St, Sacramento, CA 95819';
-export const buildGoogleMapsDirectionsUrl = (destination) => {
-  const next = String(destination || '').trim();
-  if (!next) return '';
+export const DEFAULT_PLACE_ID = 'ChIJOUeFxZLamoARlle-IChY400';
+const GOOGLE_MAPS_HOSTS = new Set(['google.com', 'www.google.com', 'maps.google.com', 'maps.app.goo.gl']);
 
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(next)}`;
+const isGoogleMapsHost = (host) => GOOGLE_MAPS_HOSTS.has(String(host || '').toLowerCase());
+
+const sanitizeGoogleMapsPlaceId = (value) => {
+  const next = String(value || '')
+    .trim()
+    .replace(/^place_id:/i, '')
+    .trim();
+  if (!next || /\s/.test(next)) return '';
+  return /^[A-Za-z0-9:_-]{10,}$/.test(next) ? next : '';
 };
-export const DEFAULT_DIRECTIONS_URL = buildGoogleMapsDirectionsUrl(DEFAULT_DIRECTIONS_DESTINATION);
+
+export const buildGoogleMapsDirectionsUrl = (destination, destinationPlaceId = '') => {
+  const next = String(destination || '').trim();
+  const placeId = sanitizeGoogleMapsPlaceId(destinationPlaceId);
+  if (!next && !placeId) return '';
+
+  const url = new URL('https://www.google.com/maps/dir/');
+  url.searchParams.set('api', '1');
+  if (next) url.searchParams.set('destination', next);
+  if (placeId) url.searchParams.set('destination_place_id', placeId);
+  return url.toString();
+};
+export const DEFAULT_DIRECTIONS_URL = buildGoogleMapsDirectionsUrl(
+  DEFAULT_DIRECTIONS_DESTINATION,
+  DEFAULT_PLACE_ID
+);
+export const buildGoogleMapsSearchUrl = (query, queryPlaceId = '') => {
+  const next = String(query || '').trim();
+  const placeId = sanitizeGoogleMapsPlaceId(queryPlaceId);
+  if (!next && !placeId) return '';
+
+  const url = new URL('https://www.google.com/maps/search/');
+  url.searchParams.set('api', '1');
+  if (next) url.searchParams.set('query', next);
+  if (placeId) url.searchParams.set('query_place_id', placeId);
+  return url.toString();
+};
+export const DEFAULT_PLACE_URL = buildGoogleMapsSearchUrl(
+  DEFAULT_DIRECTIONS_DESTINATION,
+  DEFAULT_PLACE_ID
+);
 export const DEFAULT_MAP_EMBED_URL =
   'https://www.google.com/maps?q=The+WELL+Sacramento+State+6000+J+St+Sacramento+CA+95819&output=embed';
 export const LEGACY_DEFAULT_MAP_EMBED_URL =
@@ -40,13 +77,7 @@ export const normalizeGoogleMapsEmbedUrl = (value) => {
   if (!url) return '';
 
   try {
-    const host = url.hostname.toLowerCase();
-    const isGoogleHost =
-      host === 'google.com' ||
-      host === 'www.google.com' ||
-      host === 'maps.google.com';
-
-    if (!isGoogleHost) return url.toString();
+    if (!isGoogleMapsHost(url.hostname)) return url.toString();
 
     const pathname = url.pathname.toLowerCase();
     const output = String(url.searchParams.get('output') || '').toLowerCase();
@@ -65,6 +96,40 @@ export const normalizeGoogleMapsDirectionsUrl = (value) => {
   const url = parseAbsoluteUrl(value, 'href');
   return url ? url.toString() : '';
 };
+
+export const normalizeGoogleMapsPlaceUrl = (value) => {
+  const url = parseAbsoluteUrl(value, 'href');
+  if (!url) return '';
+
+  try {
+    return isGoogleMapsHost(url.hostname) ? url.toString() : '';
+  } catch (_error) {
+    return '';
+  }
+};
+
+export const normalizeGoogleMapsPlaceId = (value) => {
+  const next = String(value || '').trim();
+  if (!next) return '';
+
+  const url = parseAbsoluteUrl(next, 'href');
+  if (url) {
+    const candidate =
+      sanitizeGoogleMapsPlaceId(url.searchParams.get('destination_place_id')) ||
+      sanitizeGoogleMapsPlaceId(url.searchParams.get('query_place_id')) ||
+      sanitizeGoogleMapsPlaceId(url.searchParams.get('place_id'));
+    if (candidate) return candidate;
+
+    const query = String(url.searchParams.get('query') || url.searchParams.get('q') || '').trim();
+    const queryPlaceIdMatch = query.match(/place_id:([^,&]+)/i);
+    return sanitizeGoogleMapsPlaceId(queryPlaceIdMatch?.[1]);
+  }
+
+  return sanitizeGoogleMapsPlaceId(next);
+};
+
+export const directionsUrlHasPlaceId = (value) =>
+  Boolean(normalizeGoogleMapsPlaceId(value));
 
 const decodeMapToken = (value) => {
   const next = String(value || '').trim();
@@ -109,11 +174,25 @@ export const extractDirectionsDestinationFromEmbedUrl = (value, venueAddress) =>
 export const buildDirectionsUrlFromEmbedUrl = (
   value,
   venueAddress,
-  fallbackDestination = DEFAULT_DIRECTIONS_DESTINATION
+  fallbackDestination = DEFAULT_DIRECTIONS_DESTINATION,
+  destinationPlaceId = ''
 ) => {
   const destination =
     extractDirectionsDestinationFromEmbedUrl(value, venueAddress) ||
     String(fallbackDestination || '').trim();
 
-  return buildGoogleMapsDirectionsUrl(destination);
+  return buildGoogleMapsDirectionsUrl(destination, destinationPlaceId);
+};
+
+export const buildPlaceUrlFromEmbedUrl = (
+  value,
+  venueAddress,
+  fallbackQuery = DEFAULT_DIRECTIONS_DESTINATION,
+  queryPlaceId = ''
+) => {
+  const query =
+    extractDirectionsDestinationFromEmbedUrl(value, venueAddress) ||
+    String(fallbackQuery || '').trim();
+
+  return buildGoogleMapsSearchUrl(query, queryPlaceId);
 };

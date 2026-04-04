@@ -31,6 +31,14 @@
       "type": "string",
       "description": "Google Maps iframe HTML or iframe src URL used for the public event map"
     },
+    "google_maps_place_url": {
+      "type": "string",
+      "description": "Shared Google Maps place link used to open the exact venue on desktop and mobile"
+    },
+    "google_maps_place_id": {
+      "type": "string",
+      "description": "Optional Google Place ID used to build exact turn-by-turn directions links"
+    },
     "google_form_embed_url": {
       "type": "string",
       "description": "Google Form embed URL for registration"

@@ -3,7 +3,13 @@ import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { appClient } from '@/api/client';
 import { useSiteContent } from '@/hooks/use-site-content';
-import { normalizeGoogleMapsDirectionsUrl, normalizeGoogleMapsEmbedUrl } from '@/lib/google-maps';
+import {
+  buildGoogleMapsDirectionsUrl,
+  normalizeGoogleMapsDirectionsUrl,
+  normalizeGoogleMapsEmbedUrl,
+  normalizeGoogleMapsPlaceId,
+  normalizeGoogleMapsPlaceUrl,
+} from '@/lib/google-maps';
 
 const ADMIN_USER_KEY = 'cyberswarm_admin_user';
 const APP_USER_KEY = 'cyberswarm_user';
@@ -315,7 +321,21 @@ export default function Admin() {
   }
 
   const normalizedMapEmbedUrl = normalizeGoogleMapsEmbedUrl(draft?.eventConfig?.google_maps_embed_url);
+  const normalizedPlaceUrl = normalizeGoogleMapsPlaceUrl(draft?.eventConfig?.google_maps_place_url);
+  const normalizedPlaceId = normalizeGoogleMapsPlaceId(draft?.eventConfig?.google_maps_place_id);
   const normalizedDirectionsUrl = normalizeGoogleMapsDirectionsUrl(draft?.eventConfig?.google_maps_directions_url);
+  const placeIdDirectionsPreview = normalizedPlaceId
+    ? buildGoogleMapsDirectionsUrl(
+        [
+          draft?.eventConfig?.venue_name_line_1 || draft?.eventConfig?.venue_name || '',
+          draft?.eventConfig?.venue_name_line_2 || '',
+          draft?.eventConfig?.venue_address || '',
+        ]
+          .filter(Boolean)
+          .join(', '),
+        normalizedPlaceId
+      )
+    : '';
 
   return (
     <div className="min-h-screen bg-background text-foreground px-4 sm:px-6 py-8">
@@ -447,17 +467,67 @@ export default function Admin() {
                   </p>
                 )}
                 <div>
+                  <p className="font-mono text-xs text-muted-foreground/75 uppercase tracking-widest mb-2">Venue place link</p>
+                  <input
+                    className={fieldClasses}
+                    value={draft.eventConfig.google_maps_place_url || ''}
+                    onChange={(e) => setField('eventConfig', 'google_maps_place_url', e.target.value)}
+                    placeholder="Paste the shared Google Maps place link for The WELL"
+                  />
+                </div>
+                <p className="font-mono text-xs text-muted-foreground/70">
+                  Use Google Maps &gt; search The WELL &gt; Share &gt; Copy link. This is the most reliable way to
+                  open the exact venue on both desktop and phones.
+                </p>
+                {normalizedPlaceUrl ? (
+                  <a
+                    href={normalizedPlaceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-3 py-2 rounded border border-primary/40 text-primary hover:bg-primary/10 transition"
+                  >
+                    Preview venue link
+                  </a>
+                ) : (
+                  <p className="font-mono text-xs text-accent/90">
+                    Paste a valid Google Maps share link to preview the exact venue page visitors will open.
+                  </p>
+                )}
+                <div>
+                  <p className="font-mono text-xs text-muted-foreground/75 uppercase tracking-widest mb-2">Google Maps place ID</p>
+                  <input
+                    className={fieldClasses}
+                    value={draft.eventConfig.google_maps_place_id || ''}
+                    onChange={(e) => setField('eventConfig', 'google_maps_place_id', e.target.value)}
+                    placeholder="Optional: paste a Google Place ID for direct turn-by-turn directions"
+                  />
+                </div>
+                <p className="font-mono text-xs text-muted-foreground/70">
+                  Optional advanced field. If you have a Google Place ID, the public button can open direct
+                  directions to that exact place instead of a general venue page.
+                </p>
+                {placeIdDirectionsPreview ? (
+                  <a
+                    href={placeIdDirectionsPreview}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-3 py-2 rounded border border-primary/40 text-primary hover:bg-primary/10 transition"
+                  >
+                    Preview place-ID directions
+                  </a>
+                ) : null}
+                <div>
                   <p className="font-mono text-xs text-muted-foreground/75 uppercase tracking-widest mb-2">Directions link</p>
                   <input
                     className={fieldClasses}
                     value={draft.eventConfig.google_maps_directions_url || ''}
                     onChange={(e) => setField('eventConfig', 'google_maps_directions_url', e.target.value)}
-                    placeholder="Paste the exact Google Maps directions URL for The WELL"
+                    placeholder="Optional: paste an explicit Google Maps directions URL"
                   />
                 </div>
                 <p className="font-mono text-xs text-muted-foreground/70">
-                  Use Google Maps &gt; Directions to The WELL &gt; Share &gt; Copy link, then paste that exact URL
-                  here so phones and desktop browsers open the same destination.
+                  Optional fallback. If this is blank, the public site will prefer the venue place link above or
+                  derive a safer Google Maps link from the embedded map.
                 </p>
                 {normalizedDirectionsUrl ? (
                   <a

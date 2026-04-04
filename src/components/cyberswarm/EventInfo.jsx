@@ -5,12 +5,19 @@ import { useSiteContent } from '@/hooks/use-site-content';
 import { format } from 'date-fns';
 import {
   DEFAULT_DIRECTIONS_URL,
+  DEFAULT_DIRECTIONS_DESTINATION,
   DEFAULT_MAP_EMBED_URL,
+  DEFAULT_PLACE_URL,
   DEFAULT_VENUE_ADDRESS,
   DEFAULT_VENUE_NAME,
+  buildGoogleMapsDirectionsUrl,
   buildDirectionsUrlFromEmbedUrl,
+  buildPlaceUrlFromEmbedUrl,
+  directionsUrlHasPlaceId,
   normalizeGoogleMapsDirectionsUrl,
   normalizeGoogleMapsEmbedUrl,
+  normalizeGoogleMapsPlaceId,
+  normalizeGoogleMapsPlaceUrl,
 } from '@/lib/google-maps';
 
 export default function EventInfo() {
@@ -20,11 +27,57 @@ export default function EventInfo() {
   const venueNameLine1 = String(config.venue_name_line_1 || config.venue_name || DEFAULT_VENUE_NAME).trim();
   const venueNameLine2 = String(config.venue_name_line_2 || '').trim();
   const venueAddress = String(config.venue_address || DEFAULT_VENUE_ADDRESS).trim();
+  const venueQuery =
+    [venueNameLine1, venueNameLine2, venueAddress].filter(Boolean).join(', ') || DEFAULT_DIRECTIONS_DESTINATION;
   const mapEmbedUrl = normalizeGoogleMapsEmbedUrl(config.google_maps_embed_url) || DEFAULT_MAP_EMBED_URL;
-  const directionsUrl =
-    normalizeGoogleMapsDirectionsUrl(config.google_maps_directions_url) ||
-    buildDirectionsUrlFromEmbedUrl(mapEmbedUrl, venueAddress) ||
-    DEFAULT_DIRECTIONS_URL;
+  const explicitPlaceId = normalizeGoogleMapsPlaceId(config.google_maps_place_id);
+  const explicitPlaceUrl = normalizeGoogleMapsPlaceUrl(config.google_maps_place_url);
+  const explicitDirectionsUrl = normalizeGoogleMapsDirectionsUrl(config.google_maps_directions_url);
+  const derivedPlaceUrl =
+    buildPlaceUrlFromEmbedUrl(mapEmbedUrl, venueAddress, venueQuery, explicitPlaceId) || DEFAULT_PLACE_URL;
+  const derivedDirectionsUrl =
+    buildDirectionsUrlFromEmbedUrl(mapEmbedUrl, venueAddress, venueQuery, explicitPlaceId) || DEFAULT_DIRECTIONS_URL;
+  const mapLink = (() => {
+    if (explicitPlaceId) {
+      return {
+        href: buildGoogleMapsDirectionsUrl(venueQuery, explicitPlaceId) || derivedDirectionsUrl,
+        label: 'Get Directions',
+      };
+    }
+
+    if (explicitDirectionsUrl && directionsUrlHasPlaceId(explicitDirectionsUrl)) {
+      return {
+        href: explicitDirectionsUrl,
+        label: 'Get Directions',
+      };
+    }
+
+    if (explicitPlaceUrl) {
+      return {
+        href: explicitPlaceUrl,
+        label: 'Open in Google Maps',
+      };
+    }
+
+    if (derivedPlaceUrl) {
+      return {
+        href: derivedPlaceUrl,
+        label: 'Open in Google Maps',
+      };
+    }
+
+    if (explicitDirectionsUrl) {
+      return {
+        href: explicitDirectionsUrl,
+        label: 'Get Directions',
+      };
+    }
+
+    return {
+      href: derivedDirectionsUrl,
+      label: 'Get Directions',
+    };
+  })();
   const eventDate = config.event_date ? new Date(`${config.event_date}T12:00:00`) : new Date('2026-04-15T12:00:00');
   const eventDateLabel = Number.isNaN(eventDate.getTime())
     ? 'April 15, 2026'
@@ -103,13 +156,13 @@ export default function EventInfo() {
               </div>
 
               <a
-                href={directionsUrl}
+                href={mapLink.href}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 font-mono text-xs text-primary underline underline-offset-4 hover:text-foreground transition-colors tracking-widest uppercase mt-2"
               >
                 <Navigation className="w-3 h-3" aria-hidden="true" />
-                Get Directions
+                {mapLink.label}
                 <span className="sr-only">, opens in a new tab</span>
               </a>
             </div>
@@ -124,8 +177,8 @@ export default function EventInfo() {
           >
             <div className="glass rounded-lg overflow-hidden aspect-video md:aspect-auto md:h-full">
               <p id="event-map-note" className="sr-only">
-                Interactive map for {venueTitle || DEFAULT_VENUE_NAME}. Use the Get Directions link if
-                the embedded map is difficult to use.
+                Interactive map for {venueTitle || DEFAULT_VENUE_NAME}. Use the Google Maps link if the embedded
+                map is difficult to use.
               </p>
               <iframe
                 src={mapEmbedUrl}
