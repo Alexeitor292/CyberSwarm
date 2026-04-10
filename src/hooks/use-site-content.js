@@ -8,8 +8,11 @@ export function useSiteContent() {
   const query = useQuery({
     queryKey: ['site-content'],
     queryFn: () => appClient.content.get(),
-    initialData: initialContent ?? undefined,
-    staleTime: 30000,
+    placeholderData: initialContent ?? undefined,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   useEffect(() => {
