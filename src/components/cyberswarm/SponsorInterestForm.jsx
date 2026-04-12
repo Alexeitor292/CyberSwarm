@@ -23,6 +23,8 @@ export default function SponsorInterestForm({ onClose }) {
   const prefersReducedMotion = useReducedMotion();
   const { data } = useSiteContent();
   const [form, setForm] = useState(initialFormState);
+  const [supportLevelChoice, setSupportLevelChoice] = useState('');
+  const [supportLevelCustom, setSupportLevelCustom] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -43,6 +45,9 @@ export default function SponsorInterestForm({ onClose }) {
     setErrorMessage('');
     setSuccessMessage('');
 
+    const resolvedSupportAmount =
+      supportLevelChoice === 'custom' ? supportLevelCustom.trim() : supportLevelChoice.trim();
+
     if (!form.organizationName.trim()) {
       setErrorMessage('Please share your organization name.');
       return;
@@ -58,7 +63,7 @@ export default function SponsorInterestForm({ onClose }) {
       return;
     }
 
-    if (!form.supportAmount.trim()) {
+    if (!resolvedSupportAmount) {
       setErrorMessage('Please tell us how your organization can support CyberSwarm.');
       return;
     }
@@ -66,8 +71,13 @@ export default function SponsorInterestForm({ onClose }) {
     setIsSubmitting(true);
 
     try {
-      await appClient.sponsorRequests.submit(form);
+      await appClient.sponsorRequests.submit({
+        ...form,
+        supportAmount: resolvedSupportAmount,
+      });
       setForm(initialFormState);
+      setSupportLevelChoice('');
+      setSupportLevelCustom('');
       setSuccessMessage('Sponsor request received. We will follow up soon.');
     } catch (error) {
       setErrorMessage(
@@ -202,7 +212,7 @@ export default function SponsorInterestForm({ onClose }) {
                     className="w-full rounded-xl border border-primary/20 bg-background/55 px-3 py-3 text-sm text-foreground outline-none transition focus:border-primary/60 focus:bg-background/80"
                     value={form.organizationName}
                     onChange={(event) => setField('organizationName', event.target.value)}
-                    placeholder="Oracle, Red Hat, CalOES, Solutions Simplified..."
+                    placeholder="Your organization name"
                     autoComplete="organization"
                   />
                 </label>
@@ -255,12 +265,28 @@ export default function SponsorInterestForm({ onClose }) {
                   <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted-foreground/75">
                     Support Level
                   </span>
-                  <input
+                  <select
                     className="w-full rounded-xl border border-primary/20 bg-background/55 px-3 py-3 text-sm text-foreground outline-none transition focus:border-primary/60 focus:bg-background/80"
-                    value={form.supportAmount}
-                    onChange={(event) => setField('supportAmount', event.target.value)}
-                    placeholder="$500, $1,000, in-kind support, lunch sponsor..."
-                  />
+                    value={supportLevelChoice}
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      setSupportLevelChoice(next);
+                      if (next !== 'custom') {
+                        setSupportLevelCustom('');
+                      }
+                    }}
+                  >
+                    <option value="">Select support amount</option>
+                    <option value="$500">$500</option>
+                    <option value="$1,000">$1,000</option>
+                    <option value="$1,500">$1,500</option>
+                    <option value="$2,000">$2,000</option>
+                    <option value="$2,500">$2,500</option>
+                    <option value="$3,000">$3,000</option>
+                    <option value="$3,500">$3,500</option>
+                    <option value="$4,000">$4,000</option>
+                    <option value="custom">Custom</option>
+                  </select>
                 </label>
 
                 <label className="space-y-2">
@@ -276,6 +302,20 @@ export default function SponsorInterestForm({ onClose }) {
                   />
                 </label>
               </div>
+
+              {supportLevelChoice === 'custom' ? (
+                <label className="space-y-2">
+                  <span className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted-foreground/75">
+                    Custom Support Amount
+                  </span>
+                  <input
+                    className="w-full rounded-xl border border-primary/20 bg-background/55 px-3 py-3 text-sm text-foreground outline-none transition focus:border-primary/60 focus:bg-background/80"
+                    value={supportLevelCustom}
+                    onChange={(event) => setSupportLevelCustom(event.target.value)}
+                    placeholder="Enter custom amount or sponsorship details"
+                  />
+                </label>
+              ) : null}
 
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="flex items-start gap-3 rounded-[1.2rem] border border-primary/15 bg-background/35 px-4 py-4">
