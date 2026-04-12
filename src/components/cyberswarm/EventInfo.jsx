@@ -20,8 +20,12 @@ import {
   normalizeGoogleMapsPlaceUrl,
 } from '@/lib/google-maps';
 
-export default function EventInfo() {
-  const { data } = useSiteContent();
+/**
+ * @param {{ content?: import('@/data/siteData').DEFAULT_SITE_CONTENT | undefined, editor?: any }} props
+ */
+export default function EventInfo({ content, editor } = {}) {
+  const { data: siteData } = useSiteContent();
+  const data = content || siteData;
   const prefersReducedMotion = useReducedMotion();
   const config = data?.eventConfig || {};
   const venueNameLine1 = String(config.venue_name_line_1 || config.venue_name || DEFAULT_VENUE_NAME).trim();
@@ -134,7 +138,15 @@ export default function EventInfo() {
                 <div>
                   <p className="font-mono text-xs text-muted-foreground uppercase tracking-widest mb-1">Time</p>
                   <p className="font-heading text-lg font-semibold text-foreground">
-                    {config.event_time || '9:00 AM - 5:00 PM PST'}
+                    {editor?.text
+                      ? editor.text({
+                          as: 'span',
+                          value: config.event_time,
+                          fallback: '9:00 AM - 5:00 PM PST',
+                          onChange: (value) => editor.setField('eventConfig', 'event_time', value),
+                          ariaLabel: 'Event time',
+                        })
+                      : config.event_time || '9:00 AM - 5:00 PM PST'}
                   </p>
                 </div>
               </div>
@@ -145,12 +157,44 @@ export default function EventInfo() {
                 </div>
                 <div>
                   <p className="font-mono text-xs text-muted-foreground uppercase tracking-widest mb-1">Venue</p>
-                  <p className="font-heading text-lg font-semibold text-foreground">{venueNameLine1}</p>
+                  <p className="font-heading text-lg font-semibold text-foreground">
+                    {editor?.text
+                      ? editor.text({
+                          as: 'span',
+                          value: venueNameLine1,
+                          fallback: DEFAULT_VENUE_NAME,
+                          onChange: (value) => {
+                            editor.setField('eventConfig', 'venue_name_line_1', value);
+                            editor.setField('eventConfig', 'venue_name', value);
+                          },
+                          ariaLabel: 'Venue name line 1',
+                        })
+                      : venueNameLine1}
+                  </p>
                   {venueNameLine2 ? (
-                    <p className="font-heading text-base font-medium text-foreground">{venueNameLine2}</p>
+                    <p className="font-heading text-base font-medium text-foreground">
+                      {editor?.text
+                        ? editor.text({
+                            as: 'span',
+                            value: venueNameLine2,
+                            fallback: 'Venue line 2',
+                            onChange: (value) => editor.setField('eventConfig', 'venue_name_line_2', value),
+                            ariaLabel: 'Venue name line 2',
+                          })
+                        : venueNameLine2}
+                    </p>
                   ) : null}
                   <p className="font-mono text-sm text-muted-foreground mt-1">
-                    {venueAddress}
+                    {editor?.text
+                      ? editor.text({
+                          as: 'span',
+                          value: venueAddress,
+                          fallback: DEFAULT_VENUE_ADDRESS,
+                          onChange: (value) => editor.setField('eventConfig', 'venue_address', value),
+                          multiline: true,
+                          ariaLabel: 'Venue address',
+                        })
+                      : venueAddress}
                   </p>
                 </div>
               </div>

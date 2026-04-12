@@ -4,8 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "dev:api": "node server/index.mjs",
+    "dev": "node scripts/dev-web.mjs",
+    "dev:api": "node scripts/dev-api.mjs",
+    "dev:all": "node scripts/dev-all.mjs",
+    "reset:local-content": "node scripts/reset-local-content.mjs",
     "build": "vite build",
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",

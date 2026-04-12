@@ -44,9 +44,13 @@ const resolveCountdownDate = (eventConfig, hero) => {
   return Number.isNaN(fallback.getTime()) ? new Date('2026-04-15T09:00:00') : fallback;
 };
 
-export default function Hero() {
+/**
+ * @param {{ content?: import('@/data/siteData').DEFAULT_SITE_CONTENT | undefined, editor?: any }} props
+ */
+export default function Hero({ content, editor } = {}) {
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, mins: 0, secs: 0 });
-  const { data } = useSiteContent();
+  const { data: siteData } = useSiteContent();
+  const data = content || siteData;
   const hero = data?.hero || {};
   const eventConfig = data?.eventConfig || {};
   const prefersReducedMotion = useReducedMotion();
@@ -127,7 +131,14 @@ export default function Hero() {
           transition={prefersReducedMotion ? { duration: 0 } : { delay: 0.3, duration: 0.8 }}
           className="font-mono text-xs tracking-[0.3em] text-primary/85 mb-6 uppercase"
         >
-          {hero.pretitle || 'Sacramento State University Presents'}
+          {editor?.text
+            ? editor.text({
+                value: hero.pretitle,
+                fallback: 'Sacramento State University Presents',
+                onChange: (value) => editor.setField('hero', 'pretitle', value),
+                ariaLabel: 'Hero pretitle',
+              })
+            : hero.pretitle || 'Sacramento State University Presents'}
         </motion.p>
 
         <h1 id="hero-title" className="font-heading font-bold leading-none mb-4">
@@ -137,7 +148,14 @@ export default function Hero() {
             animate={prefersReducedMotion ? {} : { opacity: 1, y: 0 }}
             transition={prefersReducedMotion ? { duration: 0 } : { delay: 0.5, duration: 1 }}
           >
-            {hero.title_line_1 || 'CYBER'}
+            {editor?.text
+              ? editor.text({
+                  value: hero.title_line_1,
+                  fallback: 'CYBER',
+                  onChange: (value) => editor.setField('hero', 'title_line_1', value),
+                  ariaLabel: 'Hero title line 1',
+                })
+              : hero.title_line_1 || 'CYBER'}
           </motion.span>
           <motion.span
             className="block text-6xl sm:text-8xl md:text-9xl glow-cyan text-primary"
@@ -145,7 +163,14 @@ export default function Hero() {
             animate={prefersReducedMotion ? {} : { opacity: 1, y: 0 }}
             transition={prefersReducedMotion ? { duration: 0 } : { delay: 0.7, duration: 1 }}
           >
-            {hero.title_line_2 || 'SWARM'}
+            {editor?.text
+              ? editor.text({
+                  value: hero.title_line_2,
+                  fallback: 'SWARM',
+                  onChange: (value) => editor.setField('hero', 'title_line_2', value),
+                  ariaLabel: 'Hero title line 2',
+                })
+              : hero.title_line_2 || 'SWARM'}
           </motion.span>
         </h1>
 
@@ -155,8 +180,18 @@ export default function Hero() {
           transition={prefersReducedMotion ? { duration: 0 } : { delay: 1.1, duration: 0.8 }}
           className="font-mono text-sm md:text-base text-muted-foreground max-w-xl mx-auto mt-6 leading-relaxed"
         >
-          {hero.subtitle ||
-            'Cybersecurity Panel & Networking Event - Where collective defense meets collective intelligence.'}
+          {editor?.text
+            ? editor.text({
+                as: 'span',
+                value: hero.subtitle,
+                fallback:
+                  'Cybersecurity Panel & Networking Event - Where collective defense meets collective intelligence.',
+                onChange: (value) => editor.setField('hero', 'subtitle', value),
+                multiline: true,
+                ariaLabel: 'Hero subtitle',
+              })
+            : hero.subtitle ||
+              'Cybersecurity Panel & Networking Event - Where collective defense meets collective intelligence.'}
         </motion.p>
 
         <motion.div
@@ -193,7 +228,14 @@ export default function Hero() {
             href="#register"
             className="inline-flex items-center gap-2 rounded-md border border-primary/60 bg-background/35 px-8 py-3 text-primary font-mono text-sm tracking-widest uppercase transition-all duration-300 hover:border-primary/85 hover:bg-primary/12"
           >
-            {hero.cta_label || 'Join the Swarm'}
+            {editor?.text
+              ? editor.text({
+                  value: hero.cta_label,
+                  fallback: 'Join the Swarm',
+                  onChange: (value) => editor.setField('hero', 'cta_label', value),
+                  ariaLabel: 'Hero CTA label',
+                })
+              : hero.cta_label || 'Join the Swarm'}
           </a>
         </motion.div>
       </motion.div>

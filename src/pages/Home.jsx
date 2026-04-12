@@ -1,8 +1,10 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import ParticleField from '../components/cyberswarm/ParticleField';
 import HUDOverlay from '../components/cyberswarm/HUDOverlay';
 import AdminDashboardButton from '../components/cyberswarm/AdminDashboardButton';
 import Hero from '../components/cyberswarm/Hero';
+import SponsorsShowcase from '../components/cyberswarm/SponsorsShowcase';
+import SponsorInterestForm from '../components/cyberswarm/SponsorInterestForm';
 import CompanyLogos from '../components/cyberswarm/CompanyLogo';
 import AgendaTimeline from '../components/cyberswarm/AgendaTimeline';
 import AdminUpdatesSection from '../components/cyberswarm/AdminUpdatesSection';
@@ -13,6 +15,11 @@ import { useSiteContent } from '../hooks/use-site-content';
 
 export default function Home() {
   const { data, isLoading } = useSiteContent();
+  const [isSponsorFormOpen, setIsSponsorFormOpen] = useState(
+    () => typeof window !== 'undefined' && window.location.hash === '#sponsor-interest'
+  );
+
+  /** @type {(event: import('react').MouseEvent<HTMLAnchorElement>) => void} */
   const handleSkipToMain = useCallback((event) => {
     event.preventDefault();
 
@@ -26,6 +33,47 @@ export default function Home() {
     mainContent.focus({ preventScroll: true });
     mainContent.scrollIntoView({ block: 'start' });
   }, []);
+
+  const openSponsorForm = useCallback(() => {
+    setIsSponsorFormOpen(true);
+  }, []);
+
+  const closeSponsorForm = useCallback(() => {
+    setIsSponsorFormOpen(false);
+    if (window.location.hash === '#sponsor-interest') {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const handleHashChange = () => {
+      if (window.location.hash === '#sponsor-interest') {
+        setIsSponsorFormOpen(true);
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isSponsorFormOpen || typeof window === 'undefined') return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      if (window.location.hash !== '#sponsor-interest') {
+        window.history.replaceState(null, '', '#sponsor-interest');
+      }
+
+      document.getElementById('sponsor-interest')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [isSponsorFormOpen]);
 
   if (isLoading && !data) {
     return (
@@ -75,6 +123,8 @@ export default function Home() {
       {/* Content */}
       <main id="main-content" tabIndex={-1}>
         <Hero />
+        <SponsorsShowcase onBecomeSponsorClick={openSponsorForm} />
+        {isSponsorFormOpen ? <SponsorInterestForm onClose={closeSponsorForm} /> : null}
         <CompanyLogos />
         <AgendaTimeline />
         <AdminUpdatesSection />

@@ -154,7 +154,11 @@ const getApiUrl = (path) => `${API_BASE_URL}${path}`;
 const readErrorMessage = async (response) => {
   try {
     const payload = await response.json();
+    if (payload?.error && payload?.detail) {
+      return `${String(payload.error)} ${String(payload.detail)}`.trim();
+    }
     if (payload?.error) return String(payload.error);
+    if (payload?.detail) return String(payload.detail);
   } catch (_error) {
     // Ignore invalid JSON bodies.
   }
@@ -214,6 +218,155 @@ const resetContentFromApi = async () => {
   });
 
   return normalizeSiteContent(payload);
+};
+
+const readAdminFeedFromApi = async (sourceUrl, source = '') => {
+  const token = accessToken || getStoredAccessToken();
+  if (!token) {
+    throw new Error('Admin session expired. Please sign in again at /admin.');
+  }
+
+  const params = new URLSearchParams();
+  const normalizedUrl = String(sourceUrl || '').trim();
+  const normalizedSource = String(source || '').trim();
+  if (normalizedUrl) {
+    params.set('url', normalizedUrl);
+  }
+  if (normalizedSource) {
+    params.set('source', normalizedSource);
+  }
+
+  return apiRequest(`/admin/feed?${params.toString()}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+const submitSponsorRequestToApi = async (payload) =>
+  apiRequest('/sponsor-requests', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload || {}),
+  });
+
+const readAdminSponsorRequestsFromApi = async () => {
+  const token = accessToken || getStoredAccessToken();
+  if (!token) {
+    throw new Error('Admin session expired. Please sign in again at /admin.');
+  }
+
+  return apiRequest('/admin/sponsor-requests', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+const deleteAdminSponsorRequestFromApi = async (requestId) => {
+  const token = accessToken || getStoredAccessToken();
+  if (!token) {
+    throw new Error('Admin session expired. Please sign in again at /admin.');
+  }
+
+  return apiRequest(`/admin/sponsor-requests/${encodeURIComponent(String(requestId || '').trim())}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+const readAdminSessionFromApi = async () => {
+  const token = accessToken || getStoredAccessToken();
+  if (!token) {
+    throw new Error('Admin session expired. Please sign in again at /admin.');
+  }
+
+  return apiRequest('/admin/session', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+const readAdminIntegrationStatusFromApi = async () => {
+  const token = accessToken || getStoredAccessToken();
+  if (!token) {
+    throw new Error('Admin session expired. Please sign in again at /admin.');
+  }
+
+  return apiRequest('/admin/integrations/status', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+const readAdminCalendarEventsFromApi = async () => {
+  const token = accessToken || getStoredAccessToken();
+  if (!token) {
+    throw new Error('Admin session expired. Please sign in again at /admin.');
+  }
+
+  return apiRequest('/admin/calendar/events', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+const sendAdminEmailFromApi = async (payload) => {
+  const token = accessToken || getStoredAccessToken();
+  if (!token) {
+    throw new Error('Admin session expired. Please sign in again at /admin.');
+  }
+
+  return apiRequest('/admin/email/send', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload || {}),
+  });
+};
+
+const readAdminMailingRecipientsFromApi = async () => {
+  const token = accessToken || getStoredAccessToken();
+  if (!token) {
+    throw new Error('Admin session expired. Please sign in again at /admin.');
+  }
+
+  return apiRequest('/admin/mailing/recipients', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+};
+
+const sendMailingCampaignFromApi = async (payload) => {
+  const token = accessToken || getStoredAccessToken();
+  if (!token) {
+    throw new Error('Admin session expired. Please sign in again at /admin.');
+  }
+
+  return apiRequest('/admin/mailing/send', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload || {}),
+  });
 };
 
 const createEntityClient = (entityName, idPrefix) => ({
@@ -350,6 +503,53 @@ export const appClient = {
     },
     getAccessToken() {
       return accessToken || getStoredAccessToken();
+    },
+  },
+  sponsorRequests: {
+    async submit(payload) {
+      return submitSponsorRequestToApi(payload);
+    },
+  },
+  admin: {
+    async getSession() {
+      return readAdminSessionFromApi();
+    },
+    async listSponsorRequests() {
+      return readAdminSponsorRequestsFromApi();
+    },
+    async deleteSponsorRequest(requestId) {
+      return deleteAdminSponsorRequestFromApi(requestId);
+    },
+    async getIntegrationStatus() {
+      return readAdminIntegrationStatusFromApi();
+    },
+    async listCalendarEvents() {
+      return readAdminCalendarEventsFromApi();
+    },
+    async sendEmail(payload) {
+      return sendAdminEmailFromApi(payload);
+    },
+    async getMailingRecipients() {
+      return readAdminMailingRecipientsFromApi();
+    },
+    async sendMailing(payload) {
+      return sendMailingCampaignFromApi(payload);
+    },
+    async fetchFeed(sourceUrl, options = {}) {
+      const normalized = String(sourceUrl || '').trim();
+      if (!normalized) {
+        if (options?.source) {
+          return readAdminFeedFromApi('', String(options.source));
+        }
+        return {
+          format: 'csv',
+          headers: [],
+          rows: [],
+          rowCount: 0,
+        };
+      }
+
+      return readAdminFeedFromApi(normalized, String(options?.source || ''));
     },
   },
 };

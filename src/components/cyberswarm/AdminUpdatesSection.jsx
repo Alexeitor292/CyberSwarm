@@ -4,11 +4,16 @@ import { Terminal, AlertTriangle, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { useSiteContent } from '@/hooks/use-site-content';
 
-export default function AdminUpdatesSection() {
-  const { data } = useSiteContent();
+/**
+ * @param {{ content?: import('@/data/siteData').DEFAULT_SITE_CONTENT | undefined, editor?: any }} props
+ */
+export default function AdminUpdatesSection({ content, editor } = {}) {
+  const { data: siteData } = useSiteContent();
+  const data = content || siteData;
   const prefersReducedMotion = useReducedMotion();
   const updates =
     data?.adminUpdates
+      ?.map((item, index) => ({ ...item, __index: index }))
       ?.filter((item) => item.active !== false && item.message)
       ?.sort((a, b) => new Date(b.created_date).getTime() - new Date(a.created_date).getTime())
       ?.slice(0, 10) || [];
@@ -79,7 +84,16 @@ export default function AdminUpdatesSection() {
                       <span className={`font-mono text-sm ml-2 ${
                         update.priority === 'urgent' ? 'text-accent-foreground glow-red' : 'text-foreground'
                       }`}>
-                        {update.message}
+                        {editor?.text
+                          ? editor.text({
+                              value: update.message,
+                              fallback: 'Broadcast message',
+                              onChange: (value) =>
+                                editor.setListItemField('adminUpdates', update.__index, 'message', value),
+                              multiline: true,
+                              ariaLabel: 'Broadcast message',
+                            })
+                          : update.message}
                       </span>
                     </div>
                   </motion.li>

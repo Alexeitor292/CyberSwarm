@@ -33,8 +33,12 @@ const buildDirectFormUrl = (value) => {
   }
 };
 
-export default function RegistrationForm() {
-  const { data } = useSiteContent();
+/**
+ * @param {{ content?: import('@/data/siteData').DEFAULT_SITE_CONTENT | undefined, editor?: any }} props
+ */
+export default function RegistrationForm({ content, editor } = {}) {
+  const { data: siteData } = useSiteContent();
+  const data = content || siteData;
   const [isFormOpen, setIsFormOpen] = useState(false);
   const prefersReducedMotion = useReducedMotion();
 
@@ -75,15 +79,38 @@ export default function RegistrationForm() {
             className="font-heading text-5xl sm:text-7xl md:text-8xl font-bold leading-none"
           >
             <span className="block text-foreground">
-              {registration.heading_top || 'JOIN THE'}
+              {editor?.text
+                ? editor.text({
+                    value: registration.heading_top,
+                    fallback: 'JOIN THE',
+                    onChange: (value) => editor.setField('registration', 'heading_top', value),
+                    ariaLabel: 'Registration heading top',
+                  })
+                : registration.heading_top || 'JOIN THE'}
             </span>
             <span className="block glow-cyan text-primary mt-2">
-              {registration.heading_bottom || 'SWARM'}
+              {editor?.text
+                ? editor.text({
+                    value: registration.heading_bottom,
+                    fallback: 'SWARM',
+                    onChange: (value) => editor.setField('registration', 'heading_bottom', value),
+                    ariaLabel: 'Registration heading bottom',
+                  })
+                : registration.heading_bottom || 'SWARM'}
             </span>
           </h2>
           <p className="font-mono text-sm text-muted-foreground mt-6 max-w-md mx-auto">
-            {registration.description ||
-              'Register now to secure your spot at the premier cybersecurity event at Sacramento State.'}
+            {editor?.text
+              ? editor.text({
+                  as: 'span',
+                  value: registration.description,
+                  fallback: 'Register now to secure your spot at the premier cybersecurity event at Sacramento State.',
+                  onChange: (value) => editor.setField('registration', 'description', value),
+                  multiline: true,
+                  ariaLabel: 'Registration description',
+                })
+              : registration.description ||
+                'Register now to secure your spot at the premier cybersecurity event at Sacramento State.'}
           </p>
         </motion.div>
 
@@ -171,10 +198,26 @@ export default function RegistrationForm() {
                 <div className="w-2 h-2 bg-primary/65 rounded-full animate-pulse motion-reduce:animate-none" />
               </div>
               <p className="font-heading text-2xl text-foreground">
-                {registration.placeholder_title || 'Registration Form Coming Soon'}
+                {editor?.text
+                  ? editor.text({
+                      value: registration.placeholder_title,
+                      fallback: 'Registration Form Coming Soon',
+                      onChange: (value) => editor.setField('registration', 'placeholder_title', value),
+                      ariaLabel: 'Registration placeholder title',
+                    })
+                  : registration.placeholder_title || 'Registration Form Coming Soon'}
               </p>
               <p className="font-mono text-sm text-muted-foreground mt-2">
-                {registration.placeholder_note || 'Admin: Add your Google Form URL in Event Config'}
+                {editor?.text
+                  ? editor.text({
+                      as: 'span',
+                      value: registration.placeholder_note,
+                      fallback: 'Admin: Connect your registration form in Integrations',
+                      onChange: (value) => editor.setField('registration', 'placeholder_note', value),
+                      multiline: true,
+                      ariaLabel: 'Registration placeholder note',
+                    })
+                  : registration.placeholder_note || 'Admin: Connect your registration form in Integrations'}
               </p>
             </div>
           )}

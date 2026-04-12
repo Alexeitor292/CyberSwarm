@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { appClient } from '@/api/client';
@@ -6,17 +6,10 @@ import { appClient } from '@/api/client';
 const ADMIN_USER_KEY = 'cyberswarm_admin_user';
 const APP_USER_KEY = 'cyberswarm_user';
 const GOOGLE_SCRIPT_SRC = 'https://accounts.google.com/gsi/client';
-const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
 const GOOGLE_SCOPE =
   'openid email profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
 
 let googleScriptPromise = null;
-
-const parseAdminEmails = (raw) =>
-  String(raw || '')
-    .split(',')
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
 
 const getStoredAdminUser = () => {
   if (typeof window === 'undefined') return null;
@@ -115,18 +108,6 @@ const requestAccessToken = async (googleClientId, prompt = '') => {
   });
 };
 
-const fetchGoogleProfile = async (accessToken) => {
-  const response = await fetch(GOOGLE_USERINFO_URL, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  if (!response.ok) {
-    throw new Error('Could not validate Google session.');
-  }
-
-  return response.json();
-};
-
 export default function AdminDashboardButton() {
   const navigate = useNavigate();
   const [adminUser, setAdminUser] = useState(getStoredAdminUser);
@@ -134,7 +115,6 @@ export default function AdminDashboardButton() {
   const [error, setError] = useState('');
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-  const adminEmails = useMemo(() => parseAdminEmails(import.meta.env.VITE_ADMIN_EMAILS), []);
 
   useEffect(() => {
     const sync = () => setAdminUser(getStoredAdminUser());
@@ -161,26 +141,25 @@ export default function AdminDashboardButton() {
         accessToken = await requestAccessToken(googleClientId, 'consent');
       }
 
-      const profile = await fetchGoogleProfile(accessToken);
+      appClient.auth.setAccessToken(accessToken);
+      const session = await appClient.admin.getSession();
+      const profile = session?.user || {};
       const email = String(profile.email || '').toLowerCase();
 
       if (!email) {
         throw new Error('Google login succeeded, but no email was returned.');
       }
 
-      if (adminEmails.length > 0 && !adminEmails.includes(email)) {
-        throw new Error(`Access denied for ${email}.`);
-      }
-
       const user = {
         name: profile.name || email,
         email,
         picture: profile.picture || '',
+        authSource: profile.authSource || 'server',
+        organizerGroupEmail: profile.organizerGroupEmail || '',
         lastLoginAt: new Date().toISOString(),
       };
 
       saveStoredAdminUser(user);
-      appClient.auth.setAccessToken(accessToken);
       setAdminUser(user);
       navigate('/admin');
     } catch (err) {

@@ -1,7 +1,10 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { useReducedMotion } from 'framer-motion';
 
-export default function ParticleField() {
+/**
+ * @param {{ preview?: boolean | undefined }} props
+ */
+export default function ParticleField({ preview = false } = {}) {
   const canvasRef = useRef(null);
   const mouseRef = useRef({ x: 0, y: 0 });
   const particlesRef = useRef([]);
@@ -33,8 +36,9 @@ export default function ParticleField() {
     if (!ctx) return;
 
     const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      const parent = preview ? canvas.parentElement : null;
+      canvas.width = parent?.clientWidth || window.innerWidth;
+      canvas.height = parent?.clientHeight || window.innerHeight;
       particlesRef.current = initParticles(canvas.width, canvas.height);
     };
 
@@ -110,10 +114,12 @@ export default function ParticleField() {
     };
   }, [initParticles, prefersReducedMotion]);
 
+  const positionClass = preview ? 'absolute' : 'fixed';
+
   if (prefersReducedMotion) {
     return (
       <div
-        className="fixed inset-0 z-0 pointer-events-none"
+        className={`${positionClass} inset-0 z-0 pointer-events-none`}
         style={{
           background:
             'radial-gradient(circle at top, rgba(0, 240, 255, 0.08), transparent 45%), #020203',
@@ -126,7 +132,7 @@ export default function ParticleField() {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 z-0 pointer-events-none"
+      className={`${positionClass} inset-0 z-0 pointer-events-none`}
       style={{ background: '#020203' }}
       aria-hidden="true"
     />

@@ -19,12 +19,17 @@ const typeLabels = {
   break: 'BREAK',
 };
 
-export default function AgendaTimeline() {
-  const { data } = useSiteContent();
+/**
+ * @param {{ content?: import('@/data/siteData').DEFAULT_SITE_CONTENT | undefined, editor?: any }} props
+ */
+export default function AgendaTimeline({ content, editor } = {}) {
+  const { data: siteData } = useSiteContent();
+  const data = content || siteData;
   const prefersReducedMotion = useReducedMotion();
   const items = data?.agendaItems || [];
 
   const activeItems = items
+    .map((item, index) => ({ ...item, __index: index }))
     .filter((item) => item.active !== false)
     .sort((a, b) => (a.order || 0) - (b.order || 0));
 
@@ -74,7 +79,17 @@ export default function AgendaTimeline() {
                   className="relative flex gap-6 md:gap-10 pl-6 md:pl-0"
                 >
                   <div className="hidden md:block w-20 text-right shrink-0 pt-5" aria-hidden="true">
-                    <span className="font-mono text-xs text-muted-foreground">{item.start_time}</span>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {editor?.text
+                        ? editor.text({
+                            value: item.start_time,
+                            fallback: '09:00 AM',
+                            onChange: (value) =>
+                              editor.setListItemField('agendaItems', item.__index, 'start_time', value),
+                            ariaLabel: `${item.title || 'Agenda item'} start time`,
+                          })
+                        : item.start_time}
+                    </span>
                   </div>
 
                   <div className="absolute left-0 md:left-24 top-5 -translate-x-1/2" aria-hidden="true">
@@ -89,29 +104,107 @@ export default function AgendaTimeline() {
                           <div className="flex items-center gap-2 mb-2">
                             <Icon className="w-3.5 h-3.5 text-primary/85" aria-hidden="true" />
                             <span className="font-mono text-xs text-primary/85 uppercase tracking-widest">
-                              {sessionLabel}
+                              {editor?.text
+                                ? editor.text({
+                                    value: item.session_label || sessionLabel,
+                                    fallback: 'SESSION',
+                                    onChange: (value) =>
+                                      editor.setListItemField('agendaItems', item.__index, 'session_label', value),
+                                    ariaLabel: `${item.title || 'Agenda item'} label`,
+                                  })
+                                : sessionLabel}
                             </span>
                           </div>
-                          <h3 className="font-heading text-lg font-semibold text-foreground mb-1">{item.title}</h3>
+                          <h3 className="font-heading text-lg font-semibold text-foreground mb-1">
+                            {editor?.text
+                              ? editor.text({
+                                  value: item.title,
+                                  fallback: 'Agenda Session',
+                                  onChange: (value) =>
+                                    editor.setListItemField('agendaItems', item.__index, 'title', value),
+                                  multiline: true,
+                                  ariaLabel: `${item.title || 'Agenda item'} title`,
+                                })
+                              : item.title}
+                          </h3>
                           {item.speaker && (
                             <p className="font-mono text-sm text-muted-foreground">
-                              {item.speaker}
-                              {item.company && <span className="text-primary/80"> - {item.company}</span>}
+                              {editor?.text
+                                ? editor.text({
+                                    value: item.speaker,
+                                    fallback: 'Speaker',
+                                    onChange: (value) =>
+                                      editor.setListItemField('agendaItems', item.__index, 'speaker', value),
+                                    ariaLabel: `${item.title || 'Agenda item'} speaker`,
+                                  })
+                                : item.speaker}
+                              {item.company && (
+                                <span className="text-primary/80">
+                                  {' - '}
+                                  {editor?.text
+                                    ? editor.text({
+                                        value: item.company,
+                                        fallback: 'Company',
+                                        onChange: (value) =>
+                                          editor.setListItemField('agendaItems', item.__index, 'company', value),
+                                        ariaLabel: `${item.title || 'Agenda item'} company`,
+                                      })
+                                    : item.company}
+                                </span>
+                              )}
                             </p>
                           )}
                           {item.description && (
                             <p className="font-mono text-sm text-muted-foreground mt-2 leading-relaxed">
-                              {item.description}
+                              {editor?.text
+                                ? editor.text({
+                                    as: 'span',
+                                    value: item.description,
+                                    fallback: 'Session description',
+                                    onChange: (value) =>
+                                      editor.setListItemField('agendaItems', item.__index, 'description', value),
+                                    multiline: true,
+                                    ariaLabel: `${item.title || 'Agenda item'} description`,
+                                  })
+                                : item.description}
                             </p>
                           )}
                         </div>
                         <div className="shrink-0 md:hidden" aria-hidden="true">
                           <span className="font-mono text-xs text-muted-foreground">
-                            {item.start_time} - {item.end_time}
+                            {editor?.text
+                              ? editor.text({
+                                  value: item.start_time,
+                                  fallback: '09:00 AM',
+                                  onChange: (value) =>
+                                    editor.setListItemField('agendaItems', item.__index, 'start_time', value),
+                                  ariaLabel: `${item.title || 'Agenda item'} mobile start time`,
+                                })
+                              : item.start_time}
+                            {' - '}
+                            {editor?.text
+                              ? editor.text({
+                                  value: item.end_time,
+                                  fallback: '09:45 AM',
+                                  onChange: (value) =>
+                                    editor.setListItemField('agendaItems', item.__index, 'end_time', value),
+                                  ariaLabel: `${item.title || 'Agenda item'} mobile end time`,
+                                })
+                              : item.end_time}
                           </span>
                         </div>
                         <div className="hidden md:block shrink-0" aria-hidden="true">
-                          <span className="font-mono text-xs text-muted-foreground">{item.end_time}</span>
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {editor?.text
+                              ? editor.text({
+                                  value: item.end_time,
+                                  fallback: '09:45 AM',
+                                  onChange: (value) =>
+                                    editor.setListItemField('agendaItems', item.__index, 'end_time', value),
+                                  ariaLabel: `${item.title || 'Agenda item'} end time`,
+                                })
+                              : item.end_time}
+                          </span>
                         </div>
                       </div>
                     </div>

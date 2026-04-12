@@ -54,7 +54,7 @@ export const DEFAULT_REGISTRATION_CONFIG = {
   description:
     'Register now to secure your spot at the premier cybersecurity event at Sacramento State.',
   placeholder_title: '[ REGISTRATION FORM WILL BE EMBEDDED HERE ]',
-  placeholder_note: 'Admin: Add your Google Form URL in Event Config',
+  placeholder_note: 'Admin: Connect your registration form in Integrations',
 };
 
 export const DEFAULT_FOOTER_CONFIG = {
@@ -70,6 +70,15 @@ export const DEFAULT_ORGANIZATIONS_SECTION_CONFIG = {
   heading: 'Participating Organizations',
 };
 
+export const DEFAULT_SPONSORS_SECTION_CONFIG = {
+  eyebrow: 'Featured Partners',
+  heading: 'Backed By Industry Leaders',
+  description:
+    'Organizations helping make CyberSwarm possible through direct support, visibility, and community investment.',
+  cta_label: '',
+  cta_url: '',
+};
+
 export const DEFAULT_ORGANIZATIONS = [
   { id: 'org-1', name: 'CISCO', order: 1, active: true },
   { id: 'org-2', name: 'HPE', order: 2, active: true },
@@ -80,6 +89,39 @@ export const DEFAULT_ORGANIZATIONS = [
   { id: 'org-7', name: 'SPLUNK', order: 7, active: true },
   { id: 'org-8', name: 'MANDIANT', order: 8, active: true },
 ];
+
+export const DEFAULT_SPONSORS = [];
+
+export const DEFAULT_OPERATIONS_CONFIG = {
+  sponsor_cta_label: 'Become a Sponsor',
+  sponsor_form_url: '',
+  sponsor_feed_url: '',
+  sponsor_name_field: '',
+  sponsor_email_field: '',
+  sponsor_company_field: '',
+  sponsor_interest_field: '',
+  sponsor_timestamp_field: '',
+  attendee_feed_url: '',
+  attendee_name_field: 'Name',
+  attendee_email_field: 'Email Address',
+  attendee_company_field: 'Org Name',
+  attendee_role_field: 'You are',
+  attendee_status_field: '',
+  attendee_timestamp_field: 'Timestamp',
+  calendar_label: 'CyberSwarm Calendar',
+  calendar_public_url: '',
+  calendar_embed_url: '',
+  workspace_domain: 'cyberswarmsac.com',
+  workspace_admin_console_url: 'https://admin.google.com/',
+  workspace_drive_folder_url: '',
+  workspace_shared_drive_url: '',
+  workspace_group_email: 'team@cyberswarmsac.com',
+  enabled_google_widgets: ['workspace'],
+  messaging_subject_prefix: 'CyberSwarm',
+  messaging_reply_to: '',
+  messaging_from_name: 'CyberSwarm Team',
+  messaging_team_inbox_url: '',
+};
 
 export const DEFAULT_AGENDA_ITEMS = [
   {
@@ -170,10 +212,73 @@ export const DEFAULT_SITE_CONTENT = {
   eventConfig: DEFAULT_EVENT_CONFIG,
   registration: DEFAULT_REGISTRATION_CONFIG,
   footer: DEFAULT_FOOTER_CONFIG,
+  sponsorsSection: DEFAULT_SPONSORS_SECTION_CONFIG,
+  sponsors: DEFAULT_SPONSORS,
   organizationsSection: DEFAULT_ORGANIZATIONS_SECTION_CONFIG,
   organizations: DEFAULT_ORGANIZATIONS,
   agendaItems: DEFAULT_AGENDA_ITEMS,
   adminUpdates: DEFAULT_ADMIN_UPDATES,
+  operations: DEFAULT_OPERATIONS_CONFIG,
+};
+
+const normalizeSponsorLogoBackground = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['transparent', 'soft', 'light', 'dark'].includes(normalized)) {
+    return normalized;
+  }
+  return 'transparent';
+};
+
+const normalizeSponsorLogoScale = (value) => {
+  const scale = Number(value);
+  if (!Number.isFinite(scale)) return 110;
+  return Math.min(140, Math.max(75, Math.round(scale)));
+};
+
+const normalizeSponsors = (value) => {
+  if (!Array.isArray(value)) return DEFAULT_SPONSORS.map((row) => ({ ...row }));
+
+  return value.map((row, index) => {
+    if (typeof row === 'string') {
+      return {
+        id: createId('sponsor'),
+        name: row,
+        logo_url: '',
+        website_url: '',
+        highlight: '',
+        contact_name: '',
+        email: '',
+        phone: '',
+        support_amount: '',
+        interest_notes: '',
+        bring_swag: false,
+        venue_branding: false,
+        logo_background: 'transparent',
+        logo_scale: 110,
+        order: index + 1,
+        active: true,
+      };
+    }
+
+    return {
+      id: row.id || createId('sponsor'),
+      name: row.name || '',
+      logo_url: String(row.logo_url || ''),
+      website_url: String(row.website_url || ''),
+      highlight: String(row.highlight || ''),
+      contact_name: String(row.contact_name || row.contactName || ''),
+      email: String(row.email || row.contact_email || row.contactEmail || ''),
+      phone: String(row.phone || row.contact_phone || row.contactPhone || ''),
+      support_amount: String(row.support_amount || row.supportAmount || ''),
+      interest_notes: String(row.interest_notes || row.message || row.notes || ''),
+      bring_swag: Boolean(row.bring_swag ?? row.bringSwag ?? false),
+      venue_branding: Boolean(row.venue_branding ?? row.venueBranding ?? false),
+      logo_background: normalizeSponsorLogoBackground(row.logo_background),
+      logo_scale: normalizeSponsorLogoScale(row.logo_scale),
+      order: Number.isFinite(row.order) ? row.order : index + 1,
+      active: row.active ?? true,
+    };
+  });
 };
 
 const normalizeOrganizations = (value) => {
@@ -226,6 +331,52 @@ const normalizeAdminUpdates = (value) => {
     active: row.active ?? true,
     created_date: row.created_date || nowIso(),
   }));
+};
+
+const normalizeOperationsConfig = (value) => {
+  const source = asObject(value);
+
+  return {
+    ...DEFAULT_OPERATIONS_CONFIG,
+    sponsor_cta_label: String(
+      source.sponsor_cta_label ?? DEFAULT_OPERATIONS_CONFIG.sponsor_cta_label
+    ),
+    sponsor_form_url: String(source.sponsor_form_url || ''),
+    sponsor_feed_url: String(source.sponsor_feed_url || ''),
+    sponsor_name_field: String(source.sponsor_name_field || ''),
+    sponsor_email_field: String(source.sponsor_email_field || ''),
+    sponsor_company_field: String(source.sponsor_company_field || ''),
+    sponsor_interest_field: String(source.sponsor_interest_field || ''),
+    sponsor_timestamp_field: String(source.sponsor_timestamp_field || ''),
+    attendee_feed_url: String(source.attendee_feed_url || ''),
+    attendee_name_field: String(source.attendee_name_field || ''),
+    attendee_email_field: String(source.attendee_email_field || ''),
+    attendee_company_field: String(source.attendee_company_field || ''),
+    attendee_role_field: String(source.attendee_role_field || ''),
+    attendee_status_field: String(source.attendee_status_field || ''),
+    attendee_timestamp_field: String(source.attendee_timestamp_field || ''),
+    calendar_label: String(source.calendar_label ?? DEFAULT_OPERATIONS_CONFIG.calendar_label),
+    calendar_public_url: String(source.calendar_public_url || ''),
+    calendar_embed_url: String(source.calendar_embed_url || ''),
+    workspace_domain: String(source.workspace_domain ?? DEFAULT_OPERATIONS_CONFIG.workspace_domain),
+    workspace_admin_console_url: String(
+      source.workspace_admin_console_url ?? DEFAULT_OPERATIONS_CONFIG.workspace_admin_console_url
+    ),
+    workspace_drive_folder_url: String(source.workspace_drive_folder_url || ''),
+    workspace_shared_drive_url: String(source.workspace_shared_drive_url || ''),
+    workspace_group_email: String(source.workspace_group_email ?? DEFAULT_OPERATIONS_CONFIG.workspace_group_email),
+    enabled_google_widgets: Array.isArray(source.enabled_google_widgets)
+      ? source.enabled_google_widgets.map((item) => String(item || '').trim()).filter(Boolean)
+      : [...DEFAULT_OPERATIONS_CONFIG.enabled_google_widgets],
+    messaging_subject_prefix: String(
+      source.messaging_subject_prefix ?? DEFAULT_OPERATIONS_CONFIG.messaging_subject_prefix
+    ),
+    messaging_reply_to: String(source.messaging_reply_to || ''),
+    messaging_from_name: String(
+      source.messaging_from_name ?? DEFAULT_OPERATIONS_CONFIG.messaging_from_name
+    ),
+    messaging_team_inbox_url: String(source.messaging_team_inbox_url || ''),
+  };
 };
 
 const asObject = (value) => (value && typeof value === 'object' ? value : {});
@@ -369,6 +520,18 @@ export const normalizeSiteContent = (raw) => {
           ? ''
           : String(asObject(source.footer).accessibility_phone || '').trim(),
     },
+    sponsorsSection: {
+      ...DEFAULT_SPONSORS_SECTION_CONFIG,
+      ...asObject(source.sponsorsSection),
+      eyebrow: String(source.sponsorsSection?.eyebrow ?? DEFAULT_SPONSORS_SECTION_CONFIG.eyebrow),
+      heading: String(source.sponsorsSection?.heading ?? DEFAULT_SPONSORS_SECTION_CONFIG.heading),
+      description: String(
+        source.sponsorsSection?.description ?? DEFAULT_SPONSORS_SECTION_CONFIG.description
+      ),
+      cta_label: String(source.sponsorsSection?.cta_label ?? ''),
+      cta_url: String(source.sponsorsSection?.cta_url ?? ''),
+    },
+    sponsors: normalizeSponsors(source.sponsors),
     organizationsSection: {
       ...DEFAULT_ORGANIZATIONS_SECTION_CONFIG,
       ...asObject(source.organizationsSection),
@@ -381,5 +544,6 @@ export const normalizeSiteContent = (raw) => {
     organizations: normalizeOrganizations(source.organizations ?? source.companies),
     agendaItems: normalizeAgendaItems(source.agendaItems ?? source.AgendaItem),
     adminUpdates: normalizeAdminUpdates(source.adminUpdates ?? source.AdminUpdate),
+    operations: normalizeOperationsConfig(source.operations),
   };
 };
