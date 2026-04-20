@@ -81,6 +81,18 @@ export const DEFAULT_SPONSORS_SECTION_CONFIG = {
   sponsor_profile_label: 'Profile',
   vip_group_label: 'Powered By',
   vip_group_subtitle: 'Front-of-stage partners',
+  hide_vip_group_subtitle: false,
+};
+
+const normalizeBooleanField = (value, fallback = false) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) return false;
+  }
+  return fallback;
 };
 
 export const DEFAULT_ORGANIZATIONS = [
@@ -616,6 +628,11 @@ export const normalizeSiteContent = (raw) => {
         source.sponsorsSection?.vip_group_subtitle ??
           source.sponsorsSection?.vip_subtitle ??
           DEFAULT_SPONSORS_SECTION_CONFIG.vip_group_subtitle
+      ),
+      hide_vip_group_subtitle: normalizeBooleanField(
+        source.sponsorsSection?.hide_vip_group_subtitle ??
+          source.sponsorsSection?.hideVipGroupSubtitle,
+        DEFAULT_SPONSORS_SECTION_CONFIG.hide_vip_group_subtitle
       ),
     },
     sponsors: normalizeSponsors(source.sponsors),

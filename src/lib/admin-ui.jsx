@@ -2759,6 +2759,20 @@ export default function AdminUI() {
                   }
                   placeholder="Powered-by subtitle label"
                 />
+                <label className="sm:col-span-2 flex items-center gap-2 rounded-xl border border-primary/15 bg-background/40 px-3 py-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={draft.sponsorsSection?.hide_vip_group_subtitle === true}
+                    onChange={(event) =>
+                      setField(
+                        'sponsorsSection',
+                        'hide_vip_group_subtitle',
+                        event.target.checked
+                      )
+                    }
+                  />
+                  Hide powered-by subtitle on public page
+                </label>
               </div>
               <div className={itemCardClasses}>
                 <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted-foreground/70">Sponsor Button</p>

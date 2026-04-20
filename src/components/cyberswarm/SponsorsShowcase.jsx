@@ -42,6 +42,7 @@ import {
  * @property {string} [sponsor_profile_label]
  * @property {string} [vip_group_label]
  * @property {string} [vip_group_subtitle]
+ * @property {boolean} [hide_vip_group_subtitle]
  */
 
 /**
@@ -92,6 +93,7 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
   const sponsorProfileLabel = String(sponsorsSection.sponsor_profile_label || 'Profile').trim() || 'Profile';
   const vipGroupLabel = String(sponsorsSection.vip_group_label || 'Powered By').trim() || 'Powered By';
   const vipGroupSubtitle = String(sponsorsSection.vip_group_subtitle || 'Front-of-stage partners').trim() || 'Front-of-stage partners';
+  const hideVipGroupSubtitle = sponsorsSection.hide_vip_group_subtitle === true;
   const sponsorRows = /** @type {Sponsor[]} */ (Array.isArray(data?.sponsors) ? data.sponsors : []);
   const sponsors = /** @type {Sponsor[]} */ (
     sponsorRows
@@ -532,16 +534,18 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
                         })
                       : vipGroupLabel}
                   </span>
-                  <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70">
-                    {editor?.text
-                      ? editor.text({
-                          value: vipGroupSubtitle,
-                          fallback: 'Front-of-stage partners',
-                          onChange: setSponsorsSectionField('vip_group_subtitle'),
-                          ariaLabel: 'Powered-by group subtitle',
-                        })
-                      : vipGroupSubtitle}
-                  </span>
+                  {!hideVipGroupSubtitle ? (
+                    <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70">
+                      {editor?.text
+                        ? editor.text({
+                            value: vipGroupSubtitle,
+                            fallback: 'Front-of-stage partners',
+                            onChange: setSponsorsSectionField('vip_group_subtitle'),
+                            ariaLabel: 'Powered-by group subtitle',
+                          })
+                        : vipGroupSubtitle}
+                    </span>
+                  ) : null}
                 </div>
                 <ul className="grid gap-6 xl:grid-cols-2 xl:gap-8">
                   {vipSponsors.map((sponsor, index) =>
