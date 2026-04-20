@@ -71,7 +71,7 @@ export const DEFAULT_ORGANIZATIONS_SECTION_CONFIG = {
 };
 
 export const DEFAULT_SPONSORS_SECTION_CONFIG = {
-  eyebrow: 'Featured Partners',
+  eyebrow: 'Sponsors',
   heading: 'Backed By Industry Leaders',
   description:
     'Organizations helping make CyberSwarm possible through direct support, visibility, and community investment.',
@@ -79,7 +79,7 @@ export const DEFAULT_SPONSORS_SECTION_CONFIG = {
   cta_url: '',
   sponsor_link_label: 'Visit Website',
   sponsor_profile_label: 'Profile',
-  vip_group_label: 'VIP Sponsors',
+  vip_group_label: 'Powered By',
   vip_group_subtitle: 'Front-of-stage partners',
 };
 
@@ -576,7 +576,15 @@ export const normalizeSiteContent = (raw) => {
     sponsorsSection: {
       ...DEFAULT_SPONSORS_SECTION_CONFIG,
       ...asObject(source.sponsorsSection),
-      eyebrow: String(source.sponsorsSection?.eyebrow ?? DEFAULT_SPONSORS_SECTION_CONFIG.eyebrow),
+      eyebrow: (() => {
+        const normalized = String(
+          source.sponsorsSection?.eyebrow ?? DEFAULT_SPONSORS_SECTION_CONFIG.eyebrow
+        ).trim();
+        if (!normalized || normalized.toLowerCase() === 'featured partners') {
+          return DEFAULT_SPONSORS_SECTION_CONFIG.eyebrow;
+        }
+        return normalized;
+      })(),
       heading: String(source.sponsorsSection?.heading ?? DEFAULT_SPONSORS_SECTION_CONFIG.heading),
       description: String(
         source.sponsorsSection?.description ?? DEFAULT_SPONSORS_SECTION_CONFIG.description
@@ -593,11 +601,17 @@ export const normalizeSiteContent = (raw) => {
           source.sponsorsSection?.profile_label ??
           DEFAULT_SPONSORS_SECTION_CONFIG.sponsor_profile_label
       ),
-      vip_group_label: String(
-        source.sponsorsSection?.vip_group_label ??
-          source.sponsorsSection?.vip_label ??
-          DEFAULT_SPONSORS_SECTION_CONFIG.vip_group_label
-      ),
+      vip_group_label: (() => {
+        const normalized = String(
+          source.sponsorsSection?.vip_group_label ??
+            source.sponsorsSection?.vip_label ??
+            DEFAULT_SPONSORS_SECTION_CONFIG.vip_group_label
+        ).trim();
+        if (!normalized || normalized.toLowerCase() === 'vip sponsors') {
+          return DEFAULT_SPONSORS_SECTION_CONFIG.vip_group_label;
+        }
+        return normalized;
+      })(),
       vip_group_subtitle: String(
         source.sponsorsSection?.vip_group_subtitle ??
           source.sponsorsSection?.vip_subtitle ??

@@ -84,9 +84,13 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
     data?.operations
   );
   const ctaLabel = sponsorsSection.cta_label || operations?.sponsor_cta_label || '';
+  const sponsorEyebrow =
+    String(sponsorsSection.eyebrow || '').trim() || 'Sponsors';
+  const sponsorHeading =
+    String(sponsorsSection.heading || '').trim() || 'Backed By Industry Leaders';
   const sponsorLinkLabel = String(sponsorsSection.sponsor_link_label || 'Visit Website').trim() || 'Visit Website';
   const sponsorProfileLabel = String(sponsorsSection.sponsor_profile_label || 'Profile').trim() || 'Profile';
-  const vipGroupLabel = String(sponsorsSection.vip_group_label || 'VIP Sponsors').trim() || 'VIP Sponsors';
+  const vipGroupLabel = String(sponsorsSection.vip_group_label || 'Powered By').trim() || 'Powered By';
   const vipGroupSubtitle = String(sponsorsSection.vip_group_subtitle || 'Front-of-stage partners').trim() || 'Front-of-stage partners';
   const sponsorRows = /** @type {Sponsor[]} */ (Array.isArray(data?.sponsors) ? data.sponsors : []);
   const sponsors = /** @type {Sponsor[]} */ (
@@ -110,8 +114,13 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
   const regularSponsorCarouselItemClasses = 'h-full';
   const shouldAutoAdvanceRegularCarousel =
     shouldUseRegularSponsorBand && !prefersReducedMotion && !editor?.text;
+  const regularCarouselAutoAdvanceMs = 5200;
+  const [regularCarouselAutoCycleKey, setRegularCarouselAutoCycleKey] = React.useState(0);
   const [regularCarouselApi, setRegularCarouselApi] = React.useState(null);
-  const normalizeRegularCarouselPosition = React.useCallback(() => {
+  const restartRegularCarouselAutoTimer = React.useCallback(() => {
+    setRegularCarouselAutoCycleKey((value) => value + 1);
+  }, []);
+  const alignRegularCarouselForForwardStep = React.useCallback(() => {
     if (!regularCarouselApi || !shouldUseRegularSponsorBand || !regularSponsors.length) return;
 
     const selected = regularCarouselApi.selectedScrollSnap();
@@ -123,12 +132,29 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
       return;
     }
 
+    if (selected >= upperBound) {
+      regularCarouselApi.scrollTo(selected - regularCarouselLoopOffset, true);
+    }
+  }, [regularCarouselApi, regularCarouselLoopOffset, regularSponsors.length, shouldUseRegularSponsorBand]);
+  const alignRegularCarouselForBackwardStep = React.useCallback(() => {
+    if (!regularCarouselApi || !shouldUseRegularSponsorBand || !regularSponsors.length) return;
+
+    const selected = regularCarouselApi.selectedScrollSnap();
+    const lowerBound = regularCarouselLoopOffset;
+    const upperBound = regularCarouselLoopOffset * 2 - 1;
+
     if (selected > upperBound) {
       regularCarouselApi.scrollTo(selected - regularCarouselLoopOffset, true);
+      return;
+    }
+
+    if (selected <= lowerBound) {
+      regularCarouselApi.scrollTo(selected + regularCarouselLoopOffset, true);
     }
   }, [regularCarouselApi, regularCarouselLoopOffset, regularSponsors.length, shouldUseRegularSponsorBand]);
   const moveRegularCarouselNext = React.useCallback(() => {
     if (!regularCarouselApi) return;
+    alignRegularCarouselForForwardStep();
 
     if (regularCarouselApi.canScrollNext()) {
       regularCarouselApi.scrollNext();
@@ -136,9 +162,16 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
       regularCarouselApi.scrollTo(regularCarouselLoopOffset, true);
       regularCarouselApi.scrollNext();
     }
-  }, [regularCarouselApi, regularCarouselLoopOffset, regularSponsors.length, shouldUseRegularSponsorBand]);
+  }, [
+    alignRegularCarouselForForwardStep,
+    regularCarouselApi,
+    regularCarouselLoopOffset,
+    regularSponsors.length,
+    shouldUseRegularSponsorBand,
+  ]);
   const moveRegularCarouselPrev = React.useCallback(() => {
     if (!regularCarouselApi) return;
+    alignRegularCarouselForBackwardStep();
 
     if (regularCarouselApi.canScrollPrev()) {
       regularCarouselApi.scrollPrev();
@@ -146,21 +179,27 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
       regularCarouselApi.scrollTo(regularCarouselLoopOffset * 2 - 1, true);
       regularCarouselApi.scrollPrev();
     }
-  }, [regularCarouselApi, regularCarouselLoopOffset, regularSponsors.length, shouldUseRegularSponsorBand]);
+  }, [
+    alignRegularCarouselForBackwardStep,
+    regularCarouselApi,
+    regularCarouselLoopOffset,
+    regularSponsors.length,
+    shouldUseRegularSponsorBand,
+  ]);
+  const handleRegularCarouselNextClick = React.useCallback(() => {
+    moveRegularCarouselNext();
+    restartRegularCarouselAutoTimer();
+  }, [moveRegularCarouselNext, restartRegularCarouselAutoTimer]);
+  const handleRegularCarouselPrevClick = React.useCallback(() => {
+    moveRegularCarouselPrev();
+    restartRegularCarouselAutoTimer();
+  }, [moveRegularCarouselPrev, restartRegularCarouselAutoTimer]);
   React.useEffect(() => {
     if (!regularCarouselApi || !shouldUseRegularSponsorBand || !regularSponsors.length) return;
 
     regularCarouselApi.scrollTo(regularCarouselLoopOffset, true);
-    const handleSelect = () => normalizeRegularCarouselPosition();
-    regularCarouselApi.on('select', handleSelect);
-    regularCarouselApi.on('reInit', handleSelect);
-
-    return () => {
-      regularCarouselApi.off('select', handleSelect);
-      regularCarouselApi.off('reInit', handleSelect);
-    };
+    return undefined;
   }, [
-    normalizeRegularCarouselPosition,
     regularCarouselApi,
     regularCarouselLoopOffset,
     regularSponsors.length,
@@ -172,10 +211,16 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
 
     const intervalId = window.setInterval(() => {
       moveRegularCarouselNext();
-    }, 5200);
+    }, regularCarouselAutoAdvanceMs);
 
     return () => window.clearInterval(intervalId);
-  }, [moveRegularCarouselNext, regularCarouselApi, shouldAutoAdvanceRegularCarousel]);
+  }, [
+    moveRegularCarouselNext,
+    regularCarouselApi,
+    regularCarouselAutoAdvanceMs,
+    regularCarouselAutoCycleKey,
+    shouldAutoAdvanceRegularCarousel,
+  ]);
   /**
    * @param {'eyebrow' | 'heading' | 'description' | 'cta_label' | 'sponsor_link_label' | 'sponsor_profile_label' | 'vip_group_label' | 'vip_group_subtitle'} key
    * @returns {(value: string) => void}
@@ -212,7 +257,7 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
         : index;
     const websiteUrl = normalizeExternalUrl(sponsor.website_url);
     const sponsorHost = getSponsorHost(sponsor.website_url);
-    const badgeLabel = sponsor.highlight || (isVip ? 'VIP Sponsor' : 'Featured Partner');
+    const badgeLabel = sponsor.highlight || (isVip ? 'Powered By' : 'Sponsors');
     const logoScale = clampSponsorLogoScale(sponsor.logo_scale ?? 110);
     const logoOffsetX = clampSponsorLogoOffset(sponsor.logo_offset_x ?? 0);
     const logoOffsetY = clampSponsorLogoOffset(sponsor.logo_offset_y ?? 0);
@@ -244,7 +289,7 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
             {editor?.text
               ? editor.text({
                   value: sponsor.highlight,
-                  fallback: isVip ? 'VIP Sponsor' : 'Featured Partner',
+                  fallback: isVip ? 'Powered By' : 'Sponsors',
                   onChange: setSponsorField(sponsor.__index, 'highlight'),
                   ariaLabel: `${sponsor.name || 'Sponsor'} highlight`,
                 })
@@ -345,15 +390,15 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
               {editor?.text
                 ? editor.text({
                     value: sponsorsSection.eyebrow,
-                    fallback: 'Featured Partners',
+                    fallback: 'Sponsors',
                     onChange: setSponsorsSectionField('eyebrow'),
                     ariaLabel: 'Sponsors eyebrow',
                   })
-                : sponsorsSection.eyebrow || 'Featured Partners'}
+                : sponsorEyebrow}
             </p>
             <h2
               id="sponsors-heading"
-              className="mx-auto mt-4 max-w-3xl font-heading text-4xl uppercase leading-none text-foreground sm:text-5xl"
+              className="mx-auto mt-4 font-heading text-4xl uppercase leading-none text-foreground sm:text-5xl sm:whitespace-nowrap"
             >
               {editor?.text
                 ? editor.text({
@@ -363,7 +408,7 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
                     multiline: true,
                     ariaLabel: 'Sponsors heading',
                   })
-                : sponsorsSection.heading || 'Backed By Industry Leaders'}
+                : sponsorHeading}
             </h2>
             <p className="mx-auto mt-4 max-w-2xl font-mono text-sm leading-6 text-muted-foreground sm:text-base">
               {editor?.text
@@ -415,20 +460,20 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
 
           <div className="relative px-5 py-5 sm:px-8 sm:py-7 lg:px-10 lg:py-10">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-6">
-              <div className="max-w-3xl">
+              <div className="max-w-5xl">
                 <p className="font-mono text-[0.58rem] uppercase tracking-[0.38em] text-primary/80 sm:text-[0.64rem]">
                   {editor?.text
                     ? editor.text({
                         value: sponsorsSection.eyebrow,
-                        fallback: 'Featured Partners',
+                        fallback: 'Sponsors',
                         onChange: setSponsorsSectionField('eyebrow'),
                         ariaLabel: 'Sponsors eyebrow',
                       })
-                    : sponsorsSection.eyebrow || 'Featured Partners'}
+                    : sponsorEyebrow}
                 </p>
                 <h2
                   id="sponsors-heading"
-                  className="mt-2 max-w-2xl font-heading text-4xl uppercase leading-none text-foreground lg:text-[3.2rem]"
+                  className="mt-2 font-heading text-4xl uppercase leading-none text-foreground sm:whitespace-nowrap lg:text-[3.2rem]"
                 >
                   {editor?.text
                     ? editor.text({
@@ -438,7 +483,7 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
                         multiline: true,
                         ariaLabel: 'Sponsors heading',
                       })
-                    : sponsorsSection.heading || 'Backed By Industry Leaders'}
+                    : sponsorHeading}
                 </h2>
                 <p className="mt-3 max-w-2xl font-mono text-sm leading-[1.6] text-muted-foreground lg:text-base">
                   {editor?.text
@@ -481,9 +526,9 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
                     {editor?.text
                       ? editor.text({
                           value: vipGroupLabel,
-                          fallback: 'VIP Sponsors',
+                          fallback: 'Powered By',
                           onChange: setSponsorsSectionField('vip_group_label'),
-                          ariaLabel: 'VIP group label',
+                          ariaLabel: 'Powered-by group label',
                         })
                       : vipGroupLabel}
                   </span>
@@ -493,12 +538,12 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
                           value: vipGroupSubtitle,
                           fallback: 'Front-of-stage partners',
                           onChange: setSponsorsSectionField('vip_group_subtitle'),
-                          ariaLabel: 'VIP group subtitle',
+                          ariaLabel: 'Powered-by group subtitle',
                         })
                       : vipGroupSubtitle}
                   </span>
                 </div>
-                <ul className="grid gap-4 xl:grid-cols-2">
+                <ul className="grid gap-6 xl:grid-cols-2 xl:gap-8">
                   {vipSponsors.map((sponsor, index) =>
                     renderSponsorCard(sponsor, index, {
                       isVip: true,
@@ -510,63 +555,63 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
             ) : null}
 
             {regularSponsors.length ? (
-              shouldUseRegularSponsorBand ? (
-                <div className={`${vipSponsors.length ? 'mt-4' : 'mt-6'} px-2 pb-4 pt-1`}>
-                  <Carousel
-                    setApi={setRegularCarouselApi}
-                    opts={{
-                      align: 'start',
-                      loop: false,
-                      skipSnaps: false,
-                      dragFree: false,
-                    }}
-                    className="w-full"
-                  >
-                    <CarouselContent>
-                      {regularCarouselSlides.map((sponsor, index) => (
-                        <CarouselItem
-                          key={`regular-carousel-${index}-${sponsor.id || `${sponsor.name || 'sponsor'}-${sponsor.__index ?? index}`}`}
-                          className="basis-full pb-2 sm:basis-1/2 xl:basis-1/3"
-                        >
-                          {renderSponsorCard(sponsor, index, {
-                            delayIndex: index + vipSponsors.length,
-                            itemClassName: regularSponsorCarouselItemClasses,
-                            disableReveal: true,
-                            keyPrefix: 'set-carousel-',
-                            wrapperTag: 'div',
-                          })}
-                        </CarouselItem>
-                      ))}
-                    </CarouselContent>
-                    <button
-                      type="button"
-                      onClick={moveRegularCarouselPrev}
-                      className="absolute left-0 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-primary/35 bg-background/80 text-primary transition hover:bg-primary hover:text-primary-foreground"
-                      aria-label="Previous regular sponsors"
+              <div className={vipSponsors.length ? 'mt-16' : 'mt-6'}>
+                {shouldUseRegularSponsorBand ? (
+                  <div className="px-2 pb-5 pt-1">
+                    <Carousel
+                      setApi={setRegularCarouselApi}
+                      opts={{
+                        align: 'start',
+                        loop: false,
+                        skipSnaps: false,
+                        dragFree: false,
+                      }}
+                      className="w-full"
                     >
-                      <ArrowLeft className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={moveRegularCarouselNext}
-                      className="absolute right-0 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-primary/35 bg-background/80 text-primary transition hover:bg-primary hover:text-primary-foreground"
-                      aria-label="Next regular sponsors"
-                    >
-                      <ArrowRight className="h-4 w-4" />
-                    </button>
-                  </Carousel>
-                </div>
-              ) : (
-                <ul
-                  className={`${vipSponsors.length ? 'mt-4' : 'mt-6'} grid gap-4 lg:grid-cols-2 xl:grid-cols-3`}
-                >
-                  {regularSponsors.map((sponsor, index) =>
-                    renderSponsorCard(sponsor, index, {
-                      delayIndex: index + vipSponsors.length,
-                    })
-                  )}
-                </ul>
-              )
+                      <CarouselContent>
+                        {regularCarouselSlides.map((sponsor, index) => (
+                          <CarouselItem
+                            key={`regular-carousel-${index}-${sponsor.id || `${sponsor.name || 'sponsor'}-${sponsor.__index ?? index}`}`}
+                            className="basis-full pb-2 sm:basis-1/2 xl:basis-1/3"
+                          >
+                            {renderSponsorCard(sponsor, index, {
+                              delayIndex: index + vipSponsors.length,
+                              itemClassName: regularSponsorCarouselItemClasses,
+                              disableReveal: true,
+                              keyPrefix: 'set-carousel-',
+                              wrapperTag: 'div',
+                            })}
+                          </CarouselItem>
+                        ))}
+                      </CarouselContent>
+                      <button
+                        type="button"
+                        onClick={handleRegularCarouselPrevClick}
+                        className="absolute left-0 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-primary/35 bg-background/80 text-primary transition hover:bg-primary hover:text-primary-foreground"
+                        aria-label="Previous regular sponsors"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRegularCarouselNextClick}
+                        className="absolute right-0 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-primary/35 bg-background/80 text-primary transition hover:bg-primary hover:text-primary-foreground"
+                        aria-label="Next regular sponsors"
+                      >
+                        <ArrowRight className="h-4 w-4" />
+                      </button>
+                    </Carousel>
+                  </div>
+                ) : (
+                  <ul className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                    {regularSponsors.map((sponsor, index) =>
+                      renderSponsorCard(sponsor, index, {
+                        delayIndex: index + vipSponsors.length,
+                      })
+                    )}
+                  </ul>
+                )}
+              </div>
             ) : null}
           </div>
         </div>

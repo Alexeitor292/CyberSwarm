@@ -2601,7 +2601,7 @@ export default function AdminUI() {
                 name: 'New Sponsor',
                 logo_url: '',
                 website_url: '',
-                highlight: 'Featured Partner',
+                highlight: 'Sponsors',
                 contact_name: '',
                 email: '',
                 phone: '',
@@ -2749,7 +2749,7 @@ export default function AdminUI() {
                   onChange={(event) =>
                     setField('sponsorsSection', 'vip_group_label', event.target.value)
                   }
-                  placeholder="VIP group label"
+                  placeholder="Powered-by group label"
                 />
                 <input
                   className={fieldClasses}
@@ -2757,7 +2757,7 @@ export default function AdminUI() {
                   onChange={(event) =>
                     setField('sponsorsSection', 'vip_group_subtitle', event.target.value)
                   }
-                  placeholder="VIP subtitle label"
+                  placeholder="Powered-by subtitle label"
                 />
               </div>
               <div className={itemCardClasses}>
@@ -3698,7 +3698,7 @@ export default function AdminUI() {
                           }
                           className={selectedSponsor.vip === true ? primaryButtonClasses : outlineButtonClasses}
                         >
-                          {selectedSponsor.vip === true ? 'VIP Sponsor' : 'Mark as VIP'}
+                          {selectedSponsor.vip === true ? 'Powered By' : 'Mark as Powered By'}
                         </button>
                       </div>
                       <div className="rounded-xl border border-primary/15 bg-background/35 p-3">
