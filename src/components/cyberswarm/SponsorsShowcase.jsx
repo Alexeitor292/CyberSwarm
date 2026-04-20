@@ -98,29 +98,74 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
   const vipSponsors = sponsors.filter((item) => item.vip === true);
   const regularSponsors = sponsors.filter((item) => item.vip !== true);
   const shouldUseRegularSponsorBand = regularSponsors.length > 3;
+  const regularCarouselLoopOffset = regularSponsors.length;
+  const regularCarouselSlides = React.useMemo(() => {
+    if (!shouldUseRegularSponsorBand || !regularSponsors.length) {
+      return regularSponsors;
+    }
+
+    // Triple-buffer the list so we can snap back to the middle copy invisibly.
+    return [...regularSponsors, ...regularSponsors, ...regularSponsors];
+  }, [regularSponsors, shouldUseRegularSponsorBand]);
   const regularSponsorCarouselItemClasses = 'h-full';
   const shouldAutoAdvanceRegularCarousel =
     shouldUseRegularSponsorBand && !prefersReducedMotion && !editor?.text;
   const [regularCarouselApi, setRegularCarouselApi] = React.useState(null);
+  const normalizeRegularCarouselPosition = React.useCallback(() => {
+    if (!regularCarouselApi || !shouldUseRegularSponsorBand || !regularSponsors.length) return;
+
+    const selected = regularCarouselApi.selectedScrollSnap();
+    const lowerBound = regularCarouselLoopOffset;
+    const upperBound = regularCarouselLoopOffset * 2 - 1;
+
+    if (selected < lowerBound) {
+      regularCarouselApi.scrollTo(selected + regularCarouselLoopOffset, true);
+      return;
+    }
+
+    if (selected > upperBound) {
+      regularCarouselApi.scrollTo(selected - regularCarouselLoopOffset, true);
+    }
+  }, [regularCarouselApi, regularCarouselLoopOffset, regularSponsors.length, shouldUseRegularSponsorBand]);
   const moveRegularCarouselNext = React.useCallback(() => {
     if (!regularCarouselApi) return;
+
     if (regularCarouselApi.canScrollNext()) {
       regularCarouselApi.scrollNext();
-      return;
+    } else if (shouldUseRegularSponsorBand && regularSponsors.length) {
+      regularCarouselApi.scrollTo(regularCarouselLoopOffset, true);
+      regularCarouselApi.scrollNext();
     }
-
-    regularCarouselApi.scrollTo(0);
-  }, [regularCarouselApi]);
+  }, [regularCarouselApi, regularCarouselLoopOffset, regularSponsors.length, shouldUseRegularSponsorBand]);
   const moveRegularCarouselPrev = React.useCallback(() => {
     if (!regularCarouselApi) return;
+
     if (regularCarouselApi.canScrollPrev()) {
       regularCarouselApi.scrollPrev();
-      return;
+    } else if (shouldUseRegularSponsorBand && regularSponsors.length) {
+      regularCarouselApi.scrollTo(regularCarouselLoopOffset * 2 - 1, true);
+      regularCarouselApi.scrollPrev();
     }
+  }, [regularCarouselApi, regularCarouselLoopOffset, regularSponsors.length, shouldUseRegularSponsorBand]);
+  React.useEffect(() => {
+    if (!regularCarouselApi || !shouldUseRegularSponsorBand || !regularSponsors.length) return;
 
-    const lastIndex = Math.max(0, regularCarouselApi.scrollSnapList().length - 1);
-    regularCarouselApi.scrollTo(lastIndex);
-  }, [regularCarouselApi]);
+    regularCarouselApi.scrollTo(regularCarouselLoopOffset, true);
+    const handleSelect = () => normalizeRegularCarouselPosition();
+    regularCarouselApi.on('select', handleSelect);
+    regularCarouselApi.on('reInit', handleSelect);
+
+    return () => {
+      regularCarouselApi.off('select', handleSelect);
+      regularCarouselApi.off('reInit', handleSelect);
+    };
+  }, [
+    normalizeRegularCarouselPosition,
+    regularCarouselApi,
+    regularCarouselLoopOffset,
+    regularSponsors.length,
+    shouldUseRegularSponsorBand,
+  ]);
   React.useEffect(() => {
     if (!shouldAutoAdvanceRegularCarousel || !regularCarouselApi) return;
     if (typeof window === 'undefined') return;
@@ -466,22 +511,22 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
 
             {regularSponsors.length ? (
               shouldUseRegularSponsorBand ? (
-                <div className={`${vipSponsors.length ? 'mt-4' : 'mt-6'} px-1 pb-3 pt-1`}>
+                <div className={`${vipSponsors.length ? 'mt-4' : 'mt-6'} px-2 pb-4 pt-1`}>
                   <Carousel
                     setApi={setRegularCarouselApi}
                     opts={{
                       align: 'start',
-                      loop: true,
+                      loop: false,
                       skipSnaps: false,
                       dragFree: false,
                     }}
                     className="w-full"
                   >
                     <CarouselContent>
-                      {regularSponsors.map((sponsor, index) => (
+                      {regularCarouselSlides.map((sponsor, index) => (
                         <CarouselItem
-                          key={`regular-carousel-${sponsor.id || `${sponsor.name || 'sponsor'}-${sponsor.__index ?? index}`}`}
-                          className="basis-full sm:basis-1/2 xl:basis-1/3"
+                          key={`regular-carousel-${index}-${sponsor.id || `${sponsor.name || 'sponsor'}-${sponsor.__index ?? index}`}`}
+                          className="basis-full pb-2 sm:basis-1/2 xl:basis-1/3"
                         >
                           {renderSponsorCard(sponsor, index, {
                             delayIndex: index + vipSponsors.length,
@@ -496,7 +541,7 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
                     <button
                       type="button"
                       onClick={moveRegularCarouselPrev}
-                      className="absolute left-2 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-primary/35 bg-background/80 text-primary transition hover:bg-primary hover:text-primary-foreground"
+                      className="absolute left-0 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-primary/35 bg-background/80 text-primary transition hover:bg-primary hover:text-primary-foreground"
                       aria-label="Previous regular sponsors"
                     >
                       <ArrowLeft className="h-4 w-4" />
@@ -504,7 +549,7 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
                     <button
                       type="button"
                       onClick={moveRegularCarouselNext}
-                      className="absolute right-2 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-primary/35 bg-background/80 text-primary transition hover:bg-primary hover:text-primary-foreground"
+                      className="absolute right-0 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-primary/35 bg-background/80 text-primary transition hover:bg-primary hover:text-primary-foreground"
                       aria-label="Next regular sponsors"
                     >
                       <ArrowRight className="h-4 w-4" />
