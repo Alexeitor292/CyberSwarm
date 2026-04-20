@@ -28,6 +28,7 @@ import {
   Search,
   Send,
   ShieldCheck,
+  Upload,
   X,
   Sparkles,
   Users,
@@ -43,6 +44,11 @@ import AdminUpdatesSection from '@/components/cyberswarm/AdminUpdatesSection';
 import EventInfo from '@/components/cyberswarm/EventInfo';
 import RegistrationForm from '@/components/cyberswarm/RegistrationForm';
 import Footer from '@/components/cyberswarm/Footer';
+import SponsorLogoViewport, {
+  clampSponsorLogoOffset,
+  clampSponsorLogoScale,
+  getSponsorLogoBackgroundMode,
+} from '@/components/cyberswarm/SponsorLogoViewport';
 import { useSiteContent } from '@/hooks/use-site-content';
 import {
   buildGoogleMapsDirectionsUrl,
@@ -77,6 +83,24 @@ const panelShellClasses = 'glass rounded-[1.75rem] p-5 sm:p-6 xl:p-7';
 const compactPanelShellClasses = 'glass rounded-[1.75rem] px-6 py-5 sm:px-7 sm:py-6';
 const panelSurfaceClasses = 'rounded-[1.35rem] border border-primary/15 bg-background/35 p-4';
 const itemCardClasses = `${panelSurfaceClasses} space-y-3`;
+const sponsorLogoUploadAccept = '.png,.jpg,.jpeg,.webp,.gif,.svg,image/png,image/jpeg,image/webp,image/gif,image/svg+xml';
+const sponsorLogoUploadMimeTypes = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'image/svg+xml',
+]);
+const sponsorLogoUploadMimeByExtension = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  svg: 'image/svg+xml',
+};
+const sponsorLogoUploadMaxBytes = 5 * 1024 * 1024;
+const sponsorLogoBackgroundDefaultColor = '#ffffff';
 
 const createId = (prefix) => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -225,6 +249,69 @@ const copyText = async (value) => {
   } catch (_error) {
     return false;
   }
+};
+
+const fileToBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      const base64 = result.includes(',') ? result.slice(result.indexOf(',') + 1) : result;
+      if (!base64) {
+        reject(new Error('Could not read the selected file.'));
+        return;
+      }
+      resolve(base64);
+    };
+    reader.onerror = () => reject(new Error('Could not read the selected file.'));
+    reader.readAsDataURL(file);
+  });
+
+const normalizeSponsorLogoBackgroundColor = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  const shortHexMatch = normalized.match(/^#([0-9a-f]{3})$/i);
+  if (shortHexMatch) {
+    const [r, g, b] = shortHexMatch[1].split('');
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+
+  if (/^#[0-9a-f]{6}$/i.test(normalized)) {
+    return normalized;
+  }
+
+  return sponsorLogoBackgroundDefaultColor;
+};
+
+const collectCustomColorFrameDowngrades = (beforeContent, afterContent) => {
+  const beforeSponsors = Array.isArray(beforeContent?.sponsors) ? beforeContent.sponsors : [];
+  const afterSponsors = Array.isArray(afterContent?.sponsors) ? afterContent.sponsors : [];
+  if (!beforeSponsors.length || !afterSponsors.length) return [];
+
+  const afterById = new Map(
+    afterSponsors
+      .map((sponsor, index) => [String(sponsor?.id || '').trim() || `index:${index}`, sponsor])
+      .filter(([key]) => Boolean(key))
+  );
+
+  return beforeSponsors
+    .map((beforeSponsor, index) => {
+      const beforeMode = String(beforeSponsor?.logo_background || '')
+        .trim()
+        .toLowerCase();
+      if (beforeMode !== 'color') return null;
+
+      const beforeKey = String(beforeSponsor?.id || '').trim() || `index:${index}`;
+      const afterSponsor = afterById.get(beforeKey) || afterSponsors[index];
+      if (!afterSponsor) return null;
+
+      const afterMode = String(afterSponsor?.logo_background || '')
+        .trim()
+        .toLowerCase();
+      if (afterMode === 'color') return null;
+
+      return String(beforeSponsor?.name || `Sponsor #${index + 1}`);
+    })
+    .filter(Boolean);
 };
 
 function Section({ id = undefined, eyebrow, title, description = '', action = null, children, className = '' }) {
@@ -441,6 +528,7 @@ export default function AdminUI() {
   const [calendarEventScope, setCalendarEventScope] = useState('mine');
   const [selectedSponsorIndex, setSelectedSponsorIndex] = useState(0);
   const [selectedSponsorLeadIndex, setSelectedSponsorLeadIndex] = useState(0);
+  const [sponsorLogoUploading, setSponsorLogoUploading] = useState(false);
   const [pendingSponsorLeadDeleteId, setPendingSponsorLeadDeleteId] = useState('');
   const [attendeeSearch, setAttendeeSearch] = useState('');
   const [attendeeStatusFilter, setAttendeeStatusFilter] = useState('all');
@@ -468,6 +556,16 @@ export default function AdminUI() {
     typeof window !== 'undefined' && 'Notification' in window ? window.Notification.permission : 'default'
   );
   const alertBootstrappedRef = useRef(false);
+  const sponsorLogoFileInputRef = useRef(null);
+  const sponsorLogoDragRef = useRef({
+    active: false,
+    pointerId: -1,
+    sponsorIndex: -1,
+    startX: 0,
+    startY: 0,
+    startOffsetX: 0,
+    startOffsetY: 0,
+  });
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const adminEmails = useMemo(() => parseAdminEmails(import.meta.env.VITE_ADMIN_EMAILS), []);
@@ -632,6 +730,159 @@ export default function AdminUI() {
     });
   };
 
+  const setSponsorLogoFrame = (index, updates = {}) => {
+    if (!Number.isInteger(index) || index < 0) return;
+
+    updateDraft((prev) => {
+      const sponsors = Array.isArray(prev.sponsors) ? [...prev.sponsors] : [];
+      const current = sponsors[index];
+      if (!current) return prev;
+
+      const nextScale =
+        Object.prototype.hasOwnProperty.call(updates, 'scale')
+          ? clampSponsorLogoScale(updates.scale)
+          : clampSponsorLogoScale(current.logo_scale);
+      const nextOffsetX =
+        Object.prototype.hasOwnProperty.call(updates, 'offsetX')
+          ? clampSponsorLogoOffset(updates.offsetX)
+          : clampSponsorLogoOffset(current.logo_offset_x);
+      const nextOffsetY =
+        Object.prototype.hasOwnProperty.call(updates, 'offsetY')
+          ? clampSponsorLogoOffset(updates.offsetY)
+          : clampSponsorLogoOffset(current.logo_offset_y);
+
+      if (
+        nextScale === clampSponsorLogoScale(current.logo_scale) &&
+        nextOffsetX === clampSponsorLogoOffset(current.logo_offset_x) &&
+        nextOffsetY === clampSponsorLogoOffset(current.logo_offset_y)
+      ) {
+        return prev;
+      }
+
+      sponsors[index] = {
+        ...current,
+        logo_scale: nextScale,
+        logo_offset_x: nextOffsetX,
+        logo_offset_y: nextOffsetY,
+      };
+
+      return { ...prev, sponsors };
+    });
+  };
+
+  const uploadSponsorLogoFile = async (event) => {
+    const selectedFile = event.target?.files?.[0];
+    if (event.target) {
+      event.target.value = '';
+    }
+
+    if (!selectedFile || !Number.isInteger(selectedSponsorIndex) || selectedSponsorIndex < 0) return;
+
+    const fileType = String(selectedFile.type || '').toLowerCase();
+    const lowerName = String(selectedFile.name || '').toLowerCase();
+    const extensionMatch = lowerName.match(/\.([a-z0-9]+)$/i);
+    const extension = extensionMatch?.[1] || '';
+    const extensionAllowed = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(extension);
+    const resolvedMimeType = sponsorLogoUploadMimeTypes.has(fileType)
+      ? fileType
+      : sponsorLogoUploadMimeByExtension[extension] || '';
+    if (!sponsorLogoUploadMimeTypes.has(fileType) && !extensionAllowed) {
+      setSaveMessage('Unsupported logo file type. Use PNG, JPG, WEBP, GIF, or SVG.');
+      return;
+    }
+
+    if (selectedFile.size > sponsorLogoUploadMaxBytes) {
+      setSaveMessage('Logo upload is too large. Maximum size is 5 MB.');
+      return;
+    }
+
+    setSponsorLogoUploading(true);
+    setSaveMessage('Uploading logo...');
+
+    try {
+      const base64Payload = await fileToBase64(selectedFile);
+      const result = await appClient.admin.uploadSponsorLogo({
+        fileName: selectedFile.name,
+        mimeType: resolvedMimeType,
+        dataBase64: base64Payload,
+      });
+      const uploadedUrl = String(result?.url || '').trim();
+      if (!uploadedUrl) {
+        throw new Error('Upload completed but no URL was returned.');
+      }
+
+      setListItemField('sponsors', selectedSponsorIndex, 'logo_url', uploadedUrl);
+      setSaveMessage('Logo uploaded. Click Save Changes to publish.');
+    } catch (error) {
+      setSaveMessage(
+        error instanceof Error && error.message
+          ? `Logo upload failed: ${error.message}`
+          : 'Logo upload failed.'
+      );
+    } finally {
+      setSponsorLogoUploading(false);
+    }
+  };
+
+  const beginSponsorLogoDrag = (event, sponsorIndex, startOffsetX, startOffsetY) => {
+    if (!Number.isInteger(sponsorIndex) || sponsorIndex < 0) return;
+    event.preventDefault();
+
+    sponsorLogoDragRef.current = {
+      active: true,
+      pointerId: event.pointerId,
+      sponsorIndex,
+      startX: event.clientX,
+      startY: event.clientY,
+      startOffsetX: clampSponsorLogoOffset(startOffsetX),
+      startOffsetY: clampSponsorLogoOffset(startOffsetY),
+    };
+
+    if (event.currentTarget?.setPointerCapture) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+  };
+
+  const moveSponsorLogoDrag = (event) => {
+    const dragState = sponsorLogoDragRef.current;
+    if (!dragState.active || dragState.pointerId !== event.pointerId) return;
+
+    const width = Math.max(event.currentTarget?.clientWidth || 1, 1);
+    const height = Math.max(event.currentTarget?.clientHeight || 1, 1);
+    const deltaX = event.clientX - dragState.startX;
+    const deltaY = event.clientY - dragState.startY;
+    const nextOffsetX = clampSponsorLogoOffset(dragState.startOffsetX + (deltaX / width) * 140);
+    const nextOffsetY = clampSponsorLogoOffset(dragState.startOffsetY + (deltaY / height) * 140);
+
+    setSponsorLogoFrame(dragState.sponsorIndex, {
+      offsetX: nextOffsetX,
+      offsetY: nextOffsetY,
+    });
+  };
+
+  const endSponsorLogoDrag = (event) => {
+    const dragState = sponsorLogoDragRef.current;
+    if (dragState.pointerId !== event.pointerId) return;
+
+    if (event.currentTarget?.releasePointerCapture) {
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      } catch (_error) {
+        // ignore release errors if pointer capture is already cleared
+      }
+    }
+
+    sponsorLogoDragRef.current = {
+      active: false,
+      pointerId: -1,
+      sponsorIndex: -1,
+      startX: 0,
+      startY: 0,
+      startOffsetX: 0,
+      startOffsetY: 0,
+    };
+  };
+
   const removeListItem = (listKey, index) => {
     updateDraft((prev) => ({
       ...prev,
@@ -668,6 +919,18 @@ export default function AdminUI() {
     setSaving(true);
     try {
       const saved = await appClient.content.save(draft);
+      const colorFrameDowngrades = collectCustomColorFrameDowngrades(draft, saved);
+      if (colorFrameDowngrades.length) {
+        setDraft(draft);
+        setJsonText(JSON.stringify(draft, null, 2));
+        setIsDirty(true);
+        setSaveMessage(
+          'Custom color frame was downgraded by the API response. Restart/update the API server and save again.'
+        );
+        return;
+      }
+
+      queryClient.setQueryData(['site-content'], saved);
       setDraft(saved);
       setJsonText(JSON.stringify(saved, null, 2));
       setIsDirty(false);
@@ -688,6 +951,7 @@ export default function AdminUI() {
     setSaving(true);
     try {
       const reset = await appClient.content.reset();
+      queryClient.setQueryData(['site-content'], reset);
       setDraft(reset);
       setJsonText(JSON.stringify(reset, null, 2));
       setIsDirty(false);
@@ -1504,8 +1768,12 @@ export default function AdminUI() {
       interest_notes: String(lead.message || '').trim(),
       bring_swag: Boolean(lead.bringSwag),
       venue_branding: Boolean(lead.venueBranding),
+      vip: false,
       logo_background: 'transparent',
+      logo_background_color: sponsorLogoBackgroundDefaultColor,
       logo_scale: 110,
+      logo_offset_x: 0,
+      logo_offset_y: 0,
       order: (Array.isArray(draft?.sponsors) ? draft.sponsors.length : 0) + 1,
       active: false,
     };
@@ -1517,6 +1785,7 @@ export default function AdminUI() {
 
     try {
       const saved = await appClient.content.save(nextDraft);
+      queryClient.setQueryData(['site-content'], saved);
       setDraft(saved);
       setJsonText(JSON.stringify(saved, null, 2));
       setIsDirty(false);
@@ -2340,8 +2609,12 @@ export default function AdminUI() {
                 interest_notes: '',
                 bring_swag: false,
                 venue_branding: false,
+                vip: false,
                 logo_background: 'transparent',
+                logo_background_color: sponsorLogoBackgroundDefaultColor,
                 logo_scale: 110,
+                logo_offset_x: 0,
+                logo_offset_y: 0,
                 order: (prev.sponsors || []).length + 1,
                 active: true,
               },
@@ -2907,11 +3180,22 @@ export default function AdminUI() {
       .filter(({ sponsor }) => {
         if (!sponsorCardSearch.trim()) return true;
         const query = sponsorCardSearch.trim().toLowerCase();
-        return `${sponsor.name || ''} ${sponsor.highlight || ''} ${sponsor.website_url || ''}`
+        return `${sponsor.name || ''} ${sponsor.highlight || ''} ${sponsor.website_url || ''} ${
+          sponsor.vip ? 'vip' : ''
+        }`
           .toLowerCase()
           .includes(query);
       });
     const selectedSponsor = sponsors[selectedSponsorIndex] || null;
+    const selectedSponsorLogoScale = clampSponsorLogoScale(selectedSponsor?.logo_scale ?? 110);
+    const selectedSponsorLogoOffsetX = clampSponsorLogoOffset(selectedSponsor?.logo_offset_x ?? 0);
+    const selectedSponsorLogoOffsetY = clampSponsorLogoOffset(selectedSponsor?.logo_offset_y ?? 0);
+    const selectedSponsorLogoBackgroundMode = getSponsorLogoBackgroundMode(
+      selectedSponsor?.logo_background
+    );
+    const selectedSponsorLogoBackgroundColor = normalizeSponsorLogoBackgroundColor(
+      selectedSponsor?.logo_background_color
+    );
     const selectedLead = filteredSponsorLeads[selectedSponsorLeadIndex] || null;
     const selectedLeadReviewed = selectedLead
       ? reviewedSponsorLeadKeySet.has(getSponsorLeadReviewKey(selectedLead))
@@ -2961,8 +3245,12 @@ export default function AdminUI() {
                             interest_notes: '',
                             bring_swag: false,
                             venue_branding: false,
+                            vip: false,
                             logo_background: 'transparent',
+                            logo_background_color: sponsorLogoBackgroundDefaultColor,
                             logo_scale: 110,
+                            logo_offset_x: 0,
+                            logo_offset_y: 0,
                             order: (prev.sponsors || []).length + 1,
                             active: true,
                           },
@@ -3143,6 +3431,11 @@ export default function AdminUI() {
                             <div className="flex items-start justify-between gap-3">
                               <p className="font-heading text-lg leading-tight text-foreground">{sponsor.name || 'Unnamed sponsor'}</p>
                               <div className="flex items-center gap-2">
+                                {sponsor.vip ? (
+                                  <span className="rounded-full border border-accent/35 bg-accent/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.2em] text-accent">
+                                    VIP
+                                  </span>
+                                ) : null}
                                 <span className={`rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.2em] ${
                                   sponsor.active !== false
                                     ? 'border-primary/25 text-primary/85'
@@ -3215,10 +3508,31 @@ export default function AdminUI() {
                         <input className={fieldClasses} value={selectedSponsor.highlight || ''} onChange={(event) => setListItemField('sponsors', selectedSponsorIndex, 'highlight', event.target.value)} placeholder="Highlight label" />
                         <button type="button" onClick={() => removeListItem('sponsors', selectedSponsorIndex)} className={dangerButtonClasses}>Delete Card</button>
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
                         <input className={fieldClasses} value={selectedSponsor.logo_url || ''} onChange={(event) => setListItemField('sponsors', selectedSponsorIndex, 'logo_url', event.target.value)} placeholder="Logo image URL" />
                         <input className={fieldClasses} value={selectedSponsor.website_url || ''} onChange={(event) => setListItemField('sponsors', selectedSponsorIndex, 'website_url', event.target.value)} placeholder="Sponsor website URL" />
+                        <div className="flex items-center">
+                          <input
+                            ref={sponsorLogoFileInputRef}
+                            type="file"
+                            accept={sponsorLogoUploadAccept}
+                            className="hidden"
+                            onChange={uploadSponsorLogoFile}
+                          />
+                          <button
+                            type="button"
+                            className={outlineButtonClasses}
+                            disabled={sponsorLogoUploading}
+                            onClick={() => sponsorLogoFileInputRef.current?.click()}
+                          >
+                            <Upload className="mr-2 h-4 w-4" />
+                            {sponsorLogoUploading ? 'Uploading...' : 'Upload Logo'}
+                          </button>
+                        </div>
                       </div>
+                      <p className="font-mono text-[11px] text-muted-foreground/70">
+                        Upload supports PNG, JPG/JPEG, WEBP, GIF, and SVG up to 5 MB.
+                      </p>
                       <div className="rounded-xl border border-primary/15 bg-background/35 p-3">
                         <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">Private Contact Data (Internal Only)</p>
                         <p className="mt-1 font-mono text-[11px] text-muted-foreground/75">
@@ -3277,14 +3591,29 @@ export default function AdminUI() {
                           </label>
                         </div>
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
-                        <select className={fieldClasses} value={selectedSponsor.logo_background || 'transparent'} onChange={(event) => setListItemField('sponsors', selectedSponsorIndex, 'logo_background', event.target.value)}>
+                      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                        <select
+                          className={fieldClasses}
+                          value={selectedSponsor.logo_background || 'transparent'}
+                          onChange={(event) => {
+                            const nextMode = event.target.value;
+                            setListItemField('sponsors', selectedSponsorIndex, 'logo_background', nextMode);
+                            if (nextMode === 'color' && !selectedSponsor.logo_background_color) {
+                              setListItemField(
+                                'sponsors',
+                                selectedSponsorIndex,
+                                'logo_background_color',
+                                sponsorLogoBackgroundDefaultColor
+                              );
+                            }
+                          }}
+                        >
                           <option value="transparent">transparent frame</option>
                           <option value="soft">soft glow frame</option>
                           <option value="light">light card frame</option>
                           <option value="dark">dark card frame</option>
+                          <option value="color">custom color frame</option>
                         </select>
-                        <input type="number" min="75" max="140" step="5" className={fieldClasses} value={selectedSponsor.logo_scale ?? 110} onChange={(event) => setListItemField('sponsors', selectedSponsorIndex, 'logo_scale', Number(event.target.value))} placeholder="Logo scale" />
                         <input type="number" min="1" className={fieldClasses} value={selectedSponsor.order ?? selectedSponsorIndex + 1} onChange={(event) => setListItemField('sponsors', selectedSponsorIndex, 'order', Number(event.target.value))} placeholder="Order" />
                         <button
                           type="button"
@@ -3293,6 +3622,177 @@ export default function AdminUI() {
                         >
                           {selectedSponsor.active !== false ? 'Hide Card' : 'Publish Card'}
                         </button>
+                      </div>
+                      {selectedSponsorLogoBackgroundMode === 'color' ? (
+                        <div className="grid gap-3 sm:grid-cols-[72px_minmax(0,1fr)] sm:items-center">
+                          <input
+                            type="color"
+                            className="h-10 w-full cursor-pointer rounded-xl border border-primary/20 bg-background/55 p-1"
+                            value={selectedSponsorLogoBackgroundColor}
+                            onChange={(event) =>
+                              setListItemField(
+                                'sponsors',
+                                selectedSponsorIndex,
+                                'logo_background_color',
+                                normalizeSponsorLogoBackgroundColor(event.target.value)
+                              )
+                            }
+                            aria-label="Custom logo frame color"
+                          />
+                          <input
+                            className={fieldClasses}
+                            value={selectedSponsorLogoBackgroundColor}
+                            onChange={(event) =>
+                              setListItemField(
+                                'sponsors',
+                                selectedSponsorIndex,
+                                'logo_background_color',
+                                normalizeSponsorLogoBackgroundColor(event.target.value)
+                              )
+                            }
+                            placeholder="#ffffff"
+                          />
+                        </div>
+                      ) : null}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setListItemField('sponsors', selectedSponsorIndex, 'vip', !(selectedSponsor.vip === true))
+                          }
+                          className={selectedSponsor.vip === true ? primaryButtonClasses : outlineButtonClasses}
+                        >
+                          {selectedSponsor.vip === true ? 'VIP Sponsor' : 'Mark as VIP'}
+                        </button>
+                      </div>
+                      <div className="rounded-xl border border-primary/15 bg-background/35 p-3">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                          Logo Framing
+                        </p>
+                        <p className="mt-1 font-mono text-[11px] leading-5 text-muted-foreground/75">
+                          Drag the image to reposition. Use the slider or mouse wheel over the frame to zoom.
+                        </p>
+                        <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(17rem,20rem)_minmax(0,1fr)]">
+                          <div className="relative mx-auto w-full max-w-[20rem] lg:mx-0">
+                            <SponsorLogoViewport
+                              containerClassName={selectedSponsor.logo_url ? 'cursor-grab active:cursor-grabbing' : ''}
+                              logoUrl={selectedSponsor.logo_url}
+                              logoAlt={`${selectedSponsor.name || 'Sponsor'} logo preview`}
+                              logoBackground={selectedSponsorLogoBackgroundMode}
+                              logoBackgroundColor={selectedSponsorLogoBackgroundColor}
+                              logoScale={selectedSponsorLogoScale}
+                              logoOffsetX={selectedSponsorLogoOffsetX}
+                              logoOffsetY={selectedSponsorLogoOffsetY}
+                              fallback={
+                                <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                                  Add Logo URL
+                                </p>
+                              }
+                              onPointerDown={(event) =>
+                                selectedSponsor.logo_url
+                                  ? beginSponsorLogoDrag(
+                                      event,
+                                      selectedSponsorIndex,
+                                      selectedSponsorLogoOffsetX,
+                                      selectedSponsorLogoOffsetY
+                                    )
+                                  : undefined
+                              }
+                              onPointerMove={(event) =>
+                                selectedSponsor.logo_url ? moveSponsorLogoDrag(event) : undefined
+                              }
+                              onPointerUp={endSponsorLogoDrag}
+                              onPointerCancel={endSponsorLogoDrag}
+                              onWheel={(event) => {
+                                if (!selectedSponsor.logo_url) return;
+                                event.preventDefault();
+                                const delta = event.deltaY < 0 ? 4 : -4;
+                                setSponsorLogoFrame(selectedSponsorIndex, {
+                                  scale: selectedSponsorLogoScale + delta,
+                                });
+                              }}
+                            />
+                            <div className="pointer-events-none absolute bottom-2 left-2 rounded-full border border-primary/20 bg-background/65 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-primary/80">
+                              Drag to Position
+                            </div>
+                          </div>
+
+                          <div className="space-y-3">
+                            <label className="block space-y-1">
+                              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                                Zoom ({selectedSponsorLogoScale}%)
+                              </span>
+                              <input
+                                type="range"
+                                min="60"
+                                max="400"
+                                step="1"
+                                className="w-full accent-primary"
+                                value={selectedSponsorLogoScale}
+                                onChange={(event) =>
+                                  setSponsorLogoFrame(selectedSponsorIndex, {
+                                    scale: Number(event.target.value),
+                                  })
+                                }
+                              />
+                            </label>
+
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <label className="block space-y-1">
+                                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                                  X Offset ({selectedSponsorLogoOffsetX}%)
+                                </span>
+                                <input
+                                  type="range"
+                                  min="-100"
+                                  max="100"
+                                  step="1"
+                                  className="w-full accent-primary"
+                                  value={selectedSponsorLogoOffsetX}
+                                  onChange={(event) =>
+                                    setSponsorLogoFrame(selectedSponsorIndex, {
+                                      offsetX: Number(event.target.value),
+                                    })
+                                  }
+                                />
+                              </label>
+                              <label className="block space-y-1">
+                                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                                  Y Offset ({selectedSponsorLogoOffsetY}%)
+                                </span>
+                                <input
+                                  type="range"
+                                  min="-100"
+                                  max="100"
+                                  step="1"
+                                  className="w-full accent-primary"
+                                  value={selectedSponsorLogoOffsetY}
+                                  onChange={(event) =>
+                                    setSponsorLogoFrame(selectedSponsorIndex, {
+                                      offsetY: Number(event.target.value),
+                                    })
+                                  }
+                                />
+                              </label>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                className={outlineButtonClasses}
+                                onClick={() =>
+                                  setSponsorLogoFrame(selectedSponsorIndex, {
+                                    scale: 110,
+                                    offsetX: 0,
+                                    offsetY: 0,
+                                  })
+                                }
+                              >
+                                Reset Framing
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                       <p className="font-mono text-xs leading-6 text-muted-foreground/75">
                         {selectedSponsor.active !== false

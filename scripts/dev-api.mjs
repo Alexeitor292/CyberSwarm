@@ -53,7 +53,13 @@ const mergedEnv = {
   ...fileEnv,
 };
 
-const child = spawn(process.execPath, [serverEntry], {
+const watchFlag = String(mergedEnv.API_WATCH || 'true')
+  .trim()
+  .toLowerCase();
+const useWatch = !['0', 'false', 'no', 'off'].includes(watchFlag);
+const nodeArgs = useWatch ? ['--watch', serverEntry] : [serverEntry];
+
+const child = spawn(process.execPath, nodeArgs, {
   cwd: repoRoot,
   env: mergedEnv,
   stdio: 'inherit',

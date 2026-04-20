@@ -244,6 +244,22 @@ const readAdminFeedFromApi = async (sourceUrl, source = '') => {
   });
 };
 
+const uploadSponsorLogoFromApi = async (payload) => {
+  const token = accessToken || getStoredAccessToken();
+  if (!token) {
+    throw new Error('Admin session expired. Please sign in again at /admin.');
+  }
+
+  return apiRequest('/admin/uploads/logo', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload || {}),
+  });
+};
+
 const submitSponsorRequestToApi = async (payload) =>
   apiRequest('/sponsor-requests', {
     method: 'POST',
@@ -513,6 +529,9 @@ export const appClient = {
   admin: {
     async getSession() {
       return readAdminSessionFromApi();
+    },
+    async uploadSponsorLogo(payload) {
+      return uploadSponsorLogoFromApi(payload);
     },
     async listSponsorRequests() {
       return readAdminSponsorRequestsFromApi();

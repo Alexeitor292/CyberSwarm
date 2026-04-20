@@ -3,6 +3,10 @@ import { ArrowUpRight } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useSiteContent } from '@/hooks/use-site-content';
 import { normalizeExternalUrl } from '@/lib/form-operations';
+import SponsorLogoViewport, {
+  clampSponsorLogoOffset,
+  clampSponsorLogoScale,
+} from '@/components/cyberswarm/SponsorLogoViewport';
 
 /**
  * @typedef {Object} Sponsor
@@ -11,8 +15,12 @@ import { normalizeExternalUrl } from '@/lib/form-operations';
  * @property {string} [logo_url]
  * @property {string} [website_url]
  * @property {string} [highlight]
- * @property {'transparent' | 'soft' | 'light' | 'dark'} [logo_background]
+ * @property {'transparent' | 'soft' | 'light' | 'dark' | 'color'} [logo_background]
+ * @property {string} [logo_background_color]
  * @property {number} [logo_scale]
+ * @property {number} [logo_offset_x]
+ * @property {number} [logo_offset_y]
+ * @property {boolean} [vip]
  * @property {number} [order]
  * @property {boolean} [active]
  * @property {number} [__index]
@@ -56,51 +64,6 @@ const getFallbackMark = (name) =>
     .slice(0, 3);
 
 /**
- * @param {'transparent' | 'soft' | 'light' | 'dark' | string | undefined} value
- * @returns {'transparent' | 'soft' | 'light' | 'dark'}
- */
-const getLogoBackgroundMode = (value) => {
-  if (value === 'soft' || value === 'light' || value === 'dark') return value;
-  return 'transparent';
-};
-
-/**
- * @param {'transparent' | 'soft' | 'light' | 'dark'} mode
- * @returns {string}
- */
-const getLogoFrameClasses = (mode) => {
-  if (mode === 'light') {
-    return 'border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(236,247,250,0.9))] shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]';
-  }
-
-  if (mode === 'dark') {
-    return 'border border-primary/15 bg-[linear-gradient(180deg,rgba(5,14,24,0.92),rgba(10,23,35,0.82))] shadow-[inset_0_1px_0_rgba(61,227,255,0.1)]';
-  }
-
-  if (mode === 'soft') {
-    return 'border border-primary/12 bg-[radial-gradient(circle_at_top,rgba(61,227,255,0.12),rgba(255,255,255,0.03)_55%,rgba(255,255,255,0)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]';
-  }
-
-  return 'border border-primary/8 bg-transparent';
-};
-
-/**
- * @param {'transparent' | 'soft' | 'light' | 'dark'} mode
- * @returns {string}
- */
-const getLogoImageClasses = (mode) => {
-  if (mode === 'transparent') {
-    return 'max-h-full max-w-full object-contain drop-shadow-[0_14px_24px_rgba(0,240,255,0.14)]';
-  }
-
-  if (mode === 'dark') {
-    return 'max-h-full max-w-full object-contain drop-shadow-[0_14px_24px_rgba(0,0,0,0.32)]';
-  }
-
-  return 'max-h-full max-w-full object-contain drop-shadow-[0_12px_20px_rgba(15,23,42,0.18)]';
-};
-
-/**
  * @param {{ onBecomeSponsorClick?: (() => void) | undefined, content?: import('@/data/siteData').DEFAULT_SITE_CONTENT | undefined, editor?: any }} props
  */
 export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor } = {}) {
@@ -119,6 +82,8 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
       .filter((item) => item.active !== false && item.name)
       .sort((a, b) => (a.order || 0) - (b.order || 0))
   );
+  const vipSponsors = sponsors.filter((item) => item.vip === true);
+  const regularSponsors = sponsors.filter((item) => item.vip !== true);
   /**
    * @param {'eyebrow' | 'heading' | 'description' | 'cta_label'} key
    * @returns {(value: string) => void}
@@ -135,6 +100,137 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
   const setSponsorField = (index, key) => (value) => {
     if (typeof index !== 'number') return;
     editor?.setListItemField('sponsors', index, key, value);
+  };
+  /**
+   * @param {Sponsor} sponsor
+   * @param {number} index
+   * @param {{ isVip?: boolean, delayIndex?: number }} [options]
+   */
+  const renderSponsorCard = (sponsor, index, options = {}) => {
+    const isVip = options.isVip === true;
+    const delayIndex =
+      typeof options.delayIndex === 'number' && Number.isFinite(options.delayIndex)
+        ? options.delayIndex
+        : index;
+    const websiteUrl = normalizeExternalUrl(sponsor.website_url);
+    const sponsorHost = getSponsorHost(sponsor.website_url);
+    const badgeLabel = sponsor.highlight || (isVip ? 'VIP Sponsor' : 'Featured Partner');
+    const logoScale = clampSponsorLogoScale(sponsor.logo_scale ?? 110);
+    const logoOffsetX = clampSponsorLogoOffset(sponsor.logo_offset_x ?? 0);
+    const logoOffsetY = clampSponsorLogoOffset(sponsor.logo_offset_y ?? 0);
+    const cardClasses = isVip
+      ? 'group relative flex h-full min-h-[17.5rem] flex-col overflow-hidden rounded-[1.6rem] border border-accent/30 bg-[linear-gradient(180deg,hsl(var(--background)/0.38),hsl(var(--card)/0.9))] p-5 transition duration-300 hover:-translate-y-1 hover:border-accent/50 hover:shadow-[0_22px_68px_hsl(var(--accent)/0.2)]'
+      : 'group relative flex h-full min-h-[17rem] flex-col overflow-hidden rounded-[1.6rem] border border-primary/20 bg-[linear-gradient(180deg,hsl(var(--background)/0.3),hsl(var(--card)/0.88))] p-4 transition duration-300 hover:-translate-y-1 hover:border-primary/45 hover:shadow-[0_20px_60px_hsl(var(--primary)/0.14)]';
+    const badgeClasses = isVip
+      ? 'rounded-full border border-accent/35 bg-accent/10 px-3 py-1 font-mono text-[0.62rem] uppercase tracking-[0.28em] text-accent'
+      : 'rounded-full border border-primary/25 bg-primary/8 px-3 py-1 font-mono text-[0.62rem] uppercase tracking-[0.28em] text-primary/80';
+    const iconClasses = isVip
+      ? 'flex h-10 w-10 items-center justify-center rounded-full border border-accent/35 bg-accent/12 text-accent transition duration-300 group-hover:translate-x-1 group-hover:bg-accent group-hover:text-accent-foreground'
+      : 'flex h-10 w-10 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary transition duration-300 group-hover:translate-x-1 group-hover:bg-primary group-hover:text-primary-foreground';
+    const titleClasses = isVip
+      ? 'font-heading text-[2rem] uppercase leading-tight text-foreground'
+      : 'font-heading text-[1.85rem] uppercase leading-tight text-foreground';
+    const logoViewportClasses = isVip
+      ? 'mt-4 mx-auto w-full max-w-[26rem]'
+      : 'mt-4';
+    const content = (
+      <>
+        <div
+          className={`pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent ${
+            isVip ? 'via-accent/60' : 'via-primary/55'
+          } to-transparent`}
+          aria-hidden="true"
+        />
+        <div className="flex items-center justify-between gap-3">
+          <span className={badgeClasses}>
+            {editor?.text
+              ? editor.text({
+                  value: sponsor.highlight,
+                  fallback: isVip ? 'VIP Sponsor' : 'Featured Partner',
+                  onChange: setSponsorField(sponsor.__index, 'highlight'),
+                  ariaLabel: `${sponsor.name || 'Sponsor'} highlight`,
+                })
+              : badgeLabel}
+          </span>
+          {sponsorHost ? (
+            <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70">
+              {sponsorHost}
+            </span>
+          ) : null}
+        </div>
+
+        <SponsorLogoViewport
+          containerClassName={logoViewportClasses}
+          aspectRatio={isVip ? '4 / 3' : '16 / 10'}
+          logoUrl={sponsor.logo_url}
+          logoAlt={`${sponsor.name} logo`}
+          logoBackground={sponsor.logo_background}
+          logoBackgroundColor={sponsor.logo_background_color}
+          logoScale={logoScale}
+          logoOffsetX={logoOffsetX}
+          logoOffsetY={logoOffsetY}
+          fallback={
+            <span className="font-heading text-4xl uppercase tracking-[0.16em] text-slate-900">
+              {getFallbackMark(sponsor.name)}
+            </span>
+          }
+        />
+
+        <div className="mt-4 flex flex-1 flex-col justify-between">
+          <div>
+            <h3 className={titleClasses}>
+              {editor?.text
+                ? editor.text({
+                    value: sponsor.name,
+                    fallback: 'Sponsor Name',
+                    onChange: setSponsorField(sponsor.__index, 'name'),
+                    multiline: true,
+                    ariaLabel: `${sponsor.name || 'Sponsor'} name`,
+                  })
+                : sponsor.name}
+            </h3>
+          </div>
+
+          <div className="mt-6 flex items-center justify-between gap-4">
+            <span className="font-mono text-[0.62rem] uppercase tracking-[0.28em] text-muted-foreground/80">
+              {websiteUrl ? 'Visit Website' : 'Profile'}
+            </span>
+            <span className={iconClasses} aria-hidden="true">
+              <ArrowUpRight className="h-5 w-5" />
+            </span>
+          </div>
+        </div>
+      </>
+    );
+
+    return (
+      <motion.li
+        key={sponsor.id || `${sponsor.name || 'sponsor'}-${sponsor.__index ?? index}`}
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 28 }}
+        whileInView={prefersReducedMotion ? {} : { opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.2 }}
+        transition={
+          prefersReducedMotion
+            ? { duration: 0 }
+            : { delay: delayIndex * 0.08, duration: 0.45, ease: 'easeOut' }
+        }
+        className="h-full"
+      >
+        {websiteUrl ? (
+          <a
+            href={websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cardClasses}
+            aria-label={`Visit ${sponsor.name}`}
+          >
+            {content}
+          </a>
+        ) : (
+          <div className={cardClasses}>{content}</div>
+        )}
+      </motion.li>
+    );
   };
   const stageMaxWidth = '72rem';
   const sponsorStageStyle = { width: '100%', maxWidth: stageMaxWidth };
@@ -280,121 +376,38 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
               ) : null}
             </div>
 
-            <ul className="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-              {sponsors.map((sponsor, index) => {
-                const websiteUrl = normalizeExternalUrl(sponsor.website_url);
-                const sponsorHost = getSponsorHost(sponsor.website_url);
-                const badgeLabel = sponsor.highlight || 'Featured Partner';
-                const logoBackgroundMode = getLogoBackgroundMode(sponsor.logo_background);
-                const logoScale = Math.min(140, Math.max(75, Number(sponsor.logo_scale ?? 110)));
-                const cardClasses =
-                  'group relative flex h-full min-h-[17rem] flex-col overflow-hidden rounded-[1.6rem] border border-primary/20 bg-[linear-gradient(180deg,hsl(var(--background)/0.3),hsl(var(--card)/0.88))] p-4 transition duration-300 hover:-translate-y-1 hover:border-primary/45 hover:shadow-[0_20px_60px_hsl(var(--primary)/0.14)]';
-                const content = (
-                  <>
-                    <div
-                      className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-primary/55 to-transparent"
-                      aria-hidden="true"
-                    />
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="rounded-full border border-primary/25 bg-primary/8 px-3 py-1 font-mono text-[0.62rem] uppercase tracking-[0.28em] text-primary/80">
-                        {editor?.text
-                          ? editor.text({
-                              value: sponsor.highlight,
-                              fallback: 'Featured Partner',
-                              onChange: setSponsorField(sponsor.__index, 'highlight'),
-                              ariaLabel: `${sponsor.name || 'Sponsor'} highlight`,
-                            })
-                          : badgeLabel}
-                      </span>
-                      {sponsorHost ? (
-                        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70">
-                          {sponsorHost}
-                        </span>
-                      ) : null}
-                    </div>
+            {vipSponsors.length ? (
+              <div className="mt-6">
+                <div className="mb-3 flex items-center gap-3">
+                  <span className="rounded-full border border-accent/35 bg-accent/10 px-3 py-1 font-mono text-[0.62rem] uppercase tracking-[0.28em] text-accent">
+                    VIP Sponsors
+                  </span>
+                  <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70">
+                    Front-of-stage partners
+                  </span>
+                </div>
+                <ul className="grid gap-4 xl:grid-cols-2">
+                  {vipSponsors.map((sponsor, index) =>
+                    renderSponsorCard(sponsor, index, {
+                      isVip: true,
+                      delayIndex: index,
+                    })
+                  )}
+                </ul>
+              </div>
+            ) : null}
 
-                    <div
-                      className={`mt-4 flex min-h-36 items-center justify-center overflow-hidden rounded-[1.35rem] px-4 py-4 ${getLogoFrameClasses(
-                        logoBackgroundMode
-                      )}`}
-                    >
-                      {sponsor.logo_url ? (
-                        <div className="flex h-full w-full items-center justify-center overflow-visible">
-                          <img
-                            src={sponsor.logo_url}
-                            alt={`${sponsor.name} logo`}
-                            className={getLogoImageClasses(logoBackgroundMode)}
-                            style={{ transform: `scale(${logoScale / 100})` }}
-                            loading="lazy"
-                          />
-                        </div>
-                      ) : (
-                        <span className="font-heading text-4xl uppercase tracking-[0.16em] text-slate-900">
-                          {getFallbackMark(sponsor.name)}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-4 flex flex-1 flex-col justify-between">
-                      <div>
-                        <h3 className="font-heading text-[1.85rem] uppercase leading-tight text-foreground">
-                          {editor?.text
-                            ? editor.text({
-                                value: sponsor.name,
-                                fallback: 'Sponsor Name',
-                                onChange: setSponsorField(sponsor.__index, 'name'),
-                                multiline: true,
-                                ariaLabel: `${sponsor.name || 'Sponsor'} name`,
-                              })
-                            : sponsor.name}
-                        </h3>
-                      </div>
-
-                      <div className="mt-6 flex items-center justify-between gap-4">
-                        <span className="font-mono text-[0.62rem] uppercase tracking-[0.28em] text-muted-foreground/80">
-                          {websiteUrl ? 'Visit Website' : 'Profile'}
-                        </span>
-                        <span
-                          className="flex h-10 w-10 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary transition duration-300 group-hover:translate-x-1 group-hover:bg-primary group-hover:text-primary-foreground"
-                          aria-hidden="true"
-                        >
-                          <ArrowUpRight className="h-5 w-5" />
-                        </span>
-                      </div>
-                    </div>
-                  </>
-                );
-
-                return (
-                  <motion.li
-                    key={sponsor.id || `${sponsor.name}-${index}`}
-                    initial={prefersReducedMotion ? false : { opacity: 0, y: 28 }}
-                    whileInView={prefersReducedMotion ? {} : { opacity: 1, y: 0 }}
-                    viewport={{ once: true, amount: 0.2 }}
-                    transition={
-                      prefersReducedMotion
-                        ? { duration: 0 }
-                        : { delay: index * 0.08, duration: 0.45, ease: 'easeOut' }
-                    }
-                    className="h-full"
-                  >
-                    {websiteUrl ? (
-                      <a
-                        href={websiteUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={cardClasses}
-                        aria-label={`Visit ${sponsor.name}`}
-                      >
-                        {content}
-                      </a>
-                    ) : (
-                      <div className={cardClasses}>{content}</div>
-                    )}
-                  </motion.li>
-                );
-              })}
-            </ul>
+            {regularSponsors.length ? (
+              <ul
+                className={`${vipSponsors.length ? 'mt-4' : 'mt-6'} grid gap-4 lg:grid-cols-2 xl:grid-cols-3`}
+              >
+                {regularSponsors.map((sponsor, index) =>
+                  renderSponsorCard(sponsor, index, {
+                    delayIndex: index + vipSponsors.length,
+                  })
+                )}
+              </ul>
+            ) : null}
           </div>
         </div>
       </div>

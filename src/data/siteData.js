@@ -223,16 +223,55 @@ export const DEFAULT_SITE_CONTENT = {
 
 const normalizeSponsorLogoBackground = (value) => {
   const normalized = String(value || '').trim().toLowerCase();
-  if (['transparent', 'soft', 'light', 'dark'].includes(normalized)) {
+  if (['transparent', 'soft', 'light', 'dark', 'color'].includes(normalized)) {
     return normalized;
   }
   return 'transparent';
 };
 
+const normalizeSponsorLogoBackgroundColor = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  const shortHexMatch = normalized.match(/^#([0-9a-f]{3})$/i);
+  if (shortHexMatch) {
+    const [r, g, b] = shortHexMatch[1].split('');
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+
+  if (/^#[0-9a-f]{6}$/i.test(normalized)) {
+    return normalized;
+  }
+
+  return '#ffffff';
+};
+
 const normalizeSponsorLogoScale = (value) => {
   const scale = Number(value);
   if (!Number.isFinite(scale)) return 110;
-  return Math.min(140, Math.max(75, Math.round(scale)));
+  return Math.min(400, Math.max(60, Math.round(scale)));
+};
+
+const normalizeSponsorLogoOffset = (value) => {
+  const offset = Number(value);
+  if (!Number.isFinite(offset)) return 0;
+  return Math.min(100, Math.max(-100, Math.round(offset)));
+};
+
+const normalizeSponsorVip = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return false;
+
+  if (['1', 'true', 'yes', 'y', 'vip'].includes(normalized)) {
+    return true;
+  }
+
+  if (['0', 'false', 'no', 'n', 'regular', 'standard'].includes(normalized)) {
+    return false;
+  }
+
+  return false;
 };
 
 const normalizeSponsors = (value) => {
@@ -253,8 +292,12 @@ const normalizeSponsors = (value) => {
         interest_notes: '',
         bring_swag: false,
         venue_branding: false,
+        vip: false,
         logo_background: 'transparent',
+        logo_background_color: '#ffffff',
         logo_scale: 110,
+        logo_offset_x: 0,
+        logo_offset_y: 0,
         order: index + 1,
         active: true,
       };
@@ -273,8 +316,14 @@ const normalizeSponsors = (value) => {
       interest_notes: String(row.interest_notes || row.message || row.notes || ''),
       bring_swag: Boolean(row.bring_swag ?? row.bringSwag ?? false),
       venue_branding: Boolean(row.venue_branding ?? row.venueBranding ?? false),
+      vip: normalizeSponsorVip(row.vip ?? row.is_vip ?? row.isVip ?? row.tier),
       logo_background: normalizeSponsorLogoBackground(row.logo_background),
+      logo_background_color: normalizeSponsorLogoBackgroundColor(
+        row.logo_background_color ?? row.logoBackgroundColor
+      ),
       logo_scale: normalizeSponsorLogoScale(row.logo_scale),
+      logo_offset_x: normalizeSponsorLogoOffset(row.logo_offset_x ?? row.logoOffsetX),
+      logo_offset_y: normalizeSponsorLogoOffset(row.logo_offset_y ?? row.logoOffsetY),
       order: Number.isFinite(row.order) ? row.order : index + 1,
       active: row.active ?? true,
     };

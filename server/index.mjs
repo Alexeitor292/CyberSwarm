@@ -10,6 +10,7 @@ const PORT = Number(process.env.PORT || 3001);
 const DATA_DIR = process.env.DATA_DIR || join(process.cwd(), '.data');
 const CONTENT_FILE = join(DATA_DIR, 'site-content.json');
 const SPONSOR_REQUESTS_FILE = join(DATA_DIR, 'sponsor-requests.json');
+const LOGO_UPLOADS_DIR = join(DATA_DIR, 'uploads', 'logos');
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
 const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_DIRECTORY_HAS_MEMBER_URL = 'https://admin.googleapis.com/admin/directory/v1/groups';
@@ -32,9 +33,27 @@ const ADMIN_EMAILS = String(process.env.ADMIN_EMAILS || process.env.VITE_ADMIN_E
 
 const REQUEST_TIMEOUT_MS = 10000;
 const BODY_LIMIT_BYTES = 1024 * 1024;
+const LOGO_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
+const LOGO_UPLOAD_REQUEST_LIMIT_BYTES = 12 * 1024 * 1024;
 const FEED_REQUEST_TIMEOUT_MS = 15000;
 const FEED_BODY_LIMIT_BYTES = 2 * 1024 * 1024;
 const FEED_ALLOWED_HOST_SUFFIXES = ['google.com', 'googleusercontent.com'];
+const LOGO_UPLOAD_MIME_TO_EXTENSION = Object.freeze({
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'image/svg+xml': 'svg',
+});
+const LOGO_UPLOAD_EXTENSION_TO_MIME = Object.freeze({
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  svg: 'image/svg+xml',
+});
+const BASE64_PAYLOAD_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
 const ATTENDEE_SHARED_DRIVE_ID_HINT = String(process.env.ATTENDEE_SHARED_DRIVE_ID || '').trim();
 const ATTENDEE_SHEET_NAME_HINT = String(process.env.ATTENDEE_SHEET_FILE_NAME || '').trim();
 const ATTENDEE_SHEET_TAB_NAME_HINT = String(process.env.ATTENDEE_SHEET_TAB_NAME || '').trim();
@@ -188,6 +207,39 @@ const booleanValue = (value) => {
 };
 
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(stringValue(value, 320));
+const sanitizeUploadStem = (value) => {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 48);
+
+  return normalized || 'logo';
+};
+
+const getSafeUploadFilename = (value) => {
+  const name = String(value || '').trim();
+  if (!name || name.includes('/') || name.includes('\\')) return '';
+  if (!/^[a-zA-Z0-9._-]+$/.test(name)) return '';
+  return name;
+};
+
+const parseUploadDataPayload = (rawValue) => {
+  const raw = String(rawValue || '').trim();
+  if (!raw) return { mimeType: '', dataBase64: '' };
+
+  const dataUrlMatch = raw.match(/^data:([^;,]+);base64,(.+)$/i);
+  if (dataUrlMatch) {
+    return {
+      mimeType: String(dataUrlMatch[1] || '').trim().toLowerCase(),
+      dataBase64: String(dataUrlMatch[2] || '').replace(/\s+/g, ''),
+    };
+  }
+
+  return { mimeType: '', dataBase64: raw.replace(/\s+/g, '') };
+};
 
 const SMTP_CONFIG = {
   host: stringValue(process.env.SMTP_HOST, 255),
@@ -926,14 +978,14 @@ const authenticateAdmin = async (request) => {
   }
 };
 
-const readRequestJson = async (request) =>
+const readRequestJson = async (request, maxBytes = BODY_LIMIT_BYTES) =>
   new Promise((resolve, reject) => {
     let body = '';
     let bytes = 0;
 
     request.on('data', (chunk) => {
       bytes += chunk.length;
-      if (bytes > BODY_LIMIT_BYTES) {
+      if (bytes > maxBytes) {
         reject(new Error('Request body too large.'));
         request.destroy();
         return;
@@ -963,6 +1015,14 @@ const sendJson = (response, statusCode, payload) => {
     'Cache-Control': 'no-store',
   });
   response.end(JSON.stringify(payload));
+};
+
+const sendBinary = (response, statusCode, data, contentType) => {
+  response.writeHead(statusCode, {
+    'Content-Type': contentType,
+    'Cache-Control': 'public, max-age=31536000, immutable',
+  });
+  response.end(data);
 };
 
 const sendNotFound = (response) => sendJson(response, 404, { error: 'Not found.' });
@@ -2160,7 +2220,7 @@ const server = createServer(async (request, response) => {
       response.writeHead(204, {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Methods': 'GET, PUT, POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS',
       });
       response.end();
       return;
@@ -2168,6 +2228,29 @@ const server = createServer(async (request, response) => {
 
     if ((pathname === '/health' || pathname === '/api/health') && request.method === 'GET') {
       sendJson(response, 200, { ok: true });
+      return;
+    }
+
+    if (pathname.startsWith('/api/uploads/logos/') && request.method === 'GET') {
+      const fileName = getSafeUploadFilename(
+        decodeURIComponent(pathname.replace('/api/uploads/logos/', '')).trim()
+      );
+      if (!fileName) {
+        sendNotFound(response);
+        return;
+      }
+
+      const extension = String(fileName.split('.').pop() || '').toLowerCase();
+      const contentType =
+        LOGO_UPLOAD_EXTENSION_TO_MIME[extension] || 'application/octet-stream';
+      const filePath = join(LOGO_UPLOADS_DIR, fileName);
+
+      try {
+        const payload = await readFile(filePath);
+        sendBinary(response, 200, payload, contentType);
+      } catch (_error) {
+        sendNotFound(response);
+      }
       return;
     }
 
@@ -2225,6 +2308,71 @@ const server = createServer(async (request, response) => {
         user: authResult.user,
         workspace: getIntegrationStatus().workspace,
         fetchedAt: new Date().toISOString(),
+      });
+      return;
+    }
+
+    if (pathname === '/api/admin/uploads/logo' && request.method === 'POST') {
+      const authResult = await authenticateAdmin(request);
+      if (!authResult.ok) {
+        sendJson(response, authResult.status, { error: authResult.error });
+        return;
+      }
+
+      const body = await readRequestJson(request, LOGO_UPLOAD_REQUEST_LIMIT_BYTES);
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        sendJson(response, 400, { error: 'Body must be a JSON object.' });
+        return;
+      }
+
+      const parsedPayload = parseUploadDataPayload(body.dataBase64 ?? body.data ?? body.content);
+      const requestedMimeType = stringValue(body.mimeType, 120).toLowerCase();
+      const mimeType = requestedMimeType || parsedPayload.mimeType;
+      const extension = LOGO_UPLOAD_MIME_TO_EXTENSION[mimeType];
+      if (!extension) {
+        sendJson(response, 400, {
+          error: 'Unsupported image type. Use PNG, JPEG, WEBP, GIF, or SVG.',
+        });
+        return;
+      }
+
+      const base64Payload = parsedPayload.dataBase64;
+      if (!base64Payload || !BASE64_PAYLOAD_PATTERN.test(base64Payload)) {
+        sendJson(response, 400, { error: 'Invalid file payload.' });
+        return;
+      }
+
+      const binary = Buffer.from(base64Payload, 'base64');
+      if (!binary.length) {
+        sendJson(response, 400, { error: 'Uploaded file is empty.' });
+        return;
+      }
+
+      if (binary.length > LOGO_UPLOAD_MAX_BYTES) {
+        sendJson(response, 400, {
+          error: `Logo upload exceeds ${Math.round(LOGO_UPLOAD_MAX_BYTES / (1024 * 1024))} MB limit.`,
+        });
+        return;
+      }
+
+      const rawName = stringValue(body.fileName, 200);
+      const nameRoot = rawName.includes('.') ? rawName.slice(0, rawName.lastIndexOf('.')) : rawName;
+      const safeStem = sanitizeUploadStem(nameRoot);
+      const stamp = Date.now();
+      const uniqueId = createId('logo').replace(/^logo-/, '').replace(/[^a-z0-9-]/gi, '').slice(0, 18);
+      const fileName = `${safeStem}-${stamp}-${uniqueId}.${extension}`;
+      const destination = join(LOGO_UPLOADS_DIR, fileName);
+
+      await mkdir(LOGO_UPLOADS_DIR, { recursive: true });
+      await writeFile(destination, binary);
+
+      sendJson(response, 201, {
+        ok: true,
+        url: `/api/uploads/logos/${encodeURIComponent(fileName)}`,
+        fileName,
+        mimeType,
+        sizeBytes: binary.length,
+        uploadedAt: new Date().toISOString(),
       });
       return;
     }
