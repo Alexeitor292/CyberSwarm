@@ -10,11 +10,14 @@ export default function CompanyLogos({ content, editor } = {}) {
   const data = content || siteData;
   const prefersReducedMotion = useReducedMotion();
   const organizationsSection = data?.organizationsSection || {};
+  const hideOrganizationsSection = organizationsSection.hide_organizations_section === true;
   const organizations =
     data?.organizations
       ?.map((item, index) => ({ ...item, __index: index }))
       ?.filter((item) => item.active !== false && item.name)
       ?.sort((a, b) => (a.order || 0) - (b.order || 0)) || [];
+
+  if (hideOrganizationsSection) return null;
 
   return (
     <section

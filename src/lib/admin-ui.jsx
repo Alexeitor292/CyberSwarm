@@ -2787,6 +2787,16 @@ export default function AdminUI() {
           return (
             <div className="space-y-3">
               <input className={fieldClasses} value={draft.organizationsSection?.heading || ''} onChange={(event) => setField('organizationsSection', 'heading', event.target.value)} placeholder="Section heading" />
+              <label className="flex items-center gap-2 rounded-xl border border-primary/15 bg-background/40 px-3 py-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={draft.organizationsSection?.hide_organizations_section === true}
+                  onChange={(event) =>
+                    setField('organizationsSection', 'hide_organizations_section', event.target.checked)
+                  }
+                />
+                Hide Industry Guests section on public page
+              </label>
               <button type="button" onClick={() => updateDraft((prev) => ({ ...prev, organizations: [...(prev.organizations || []), { id: createId('org'), name: '', order: (prev.organizations || []).length + 1, active: true }] }))} className={outlineButtonClasses}>Add Organization Block</button>
               <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
                 {draft.organizations?.length ? draft.organizations.map((organization, index) => (

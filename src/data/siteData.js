@@ -68,6 +68,7 @@ export const DEFAULT_FOOTER_CONFIG = {
 
 export const DEFAULT_ORGANIZATIONS_SECTION_CONFIG = {
   heading: 'Participating Organizations',
+  hide_organizations_section: false,
 };
 
 export const DEFAULT_SPONSORS_SECTION_CONFIG = {
@@ -643,6 +644,11 @@ export const normalizeSiteContent = (raw) => {
         source.organizationsSection?.heading ??
           source.organizations_heading ??
           DEFAULT_ORGANIZATIONS_SECTION_CONFIG.heading
+      ),
+      hide_organizations_section: normalizeBooleanField(
+        source.organizationsSection?.hide_organizations_section ??
+          source.organizationsSection?.hideOrganizationsSection,
+        DEFAULT_ORGANIZATIONS_SECTION_CONFIG.hide_organizations_section
       ),
     },
     organizations: normalizeOrganizations(source.organizations ?? source.companies),
