@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useSiteContent } from '@/hooks/use-site-content';
 import { normalizeExternalUrl } from '@/lib/form-operations';
@@ -11,8 +11,6 @@ import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
 } from '@/components/ui/carousel';
 
 /**
@@ -104,16 +102,35 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
   const shouldAutoAdvanceRegularCarousel =
     shouldUseRegularSponsorBand && !prefersReducedMotion && !editor?.text;
   const [regularCarouselApi, setRegularCarouselApi] = React.useState(null);
+  const moveRegularCarouselNext = React.useCallback(() => {
+    if (!regularCarouselApi) return;
+    if (regularCarouselApi.canScrollNext()) {
+      regularCarouselApi.scrollNext();
+      return;
+    }
+
+    regularCarouselApi.scrollTo(0);
+  }, [regularCarouselApi]);
+  const moveRegularCarouselPrev = React.useCallback(() => {
+    if (!regularCarouselApi) return;
+    if (regularCarouselApi.canScrollPrev()) {
+      regularCarouselApi.scrollPrev();
+      return;
+    }
+
+    const lastIndex = Math.max(0, regularCarouselApi.scrollSnapList().length - 1);
+    regularCarouselApi.scrollTo(lastIndex);
+  }, [regularCarouselApi]);
   React.useEffect(() => {
     if (!shouldAutoAdvanceRegularCarousel || !regularCarouselApi) return;
     if (typeof window === 'undefined') return;
 
     const intervalId = window.setInterval(() => {
-      regularCarouselApi.scrollNext();
-    }, 6500);
+      moveRegularCarouselNext();
+    }, 5200);
 
     return () => window.clearInterval(intervalId);
-  }, [regularCarouselApi, shouldAutoAdvanceRegularCarousel]);
+  }, [moveRegularCarouselNext, regularCarouselApi, shouldAutoAdvanceRegularCarousel]);
   /**
    * @param {'eyebrow' | 'heading' | 'description' | 'cta_label' | 'sponsor_link_label' | 'sponsor_profile_label' | 'vip_group_label' | 'vip_group_subtitle'} key
    * @returns {(value: string) => void}
@@ -454,7 +471,6 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
                     setApi={setRegularCarouselApi}
                     opts={{
                       align: 'start',
-                      containScroll: 'trimSnaps',
                       loop: true,
                       skipSnaps: false,
                       dragFree: false,
@@ -477,8 +493,22 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
                         </CarouselItem>
                       ))}
                     </CarouselContent>
-                    <CarouselPrevious className="left-2 top-1/2 h-9 w-9 -translate-y-1/2 border border-primary/35 bg-background/80 text-primary hover:bg-primary hover:text-primary-foreground" />
-                    <CarouselNext className="right-2 top-1/2 h-9 w-9 -translate-y-1/2 border border-primary/35 bg-background/80 text-primary hover:bg-primary hover:text-primary-foreground" />
+                    <button
+                      type="button"
+                      onClick={moveRegularCarouselPrev}
+                      className="absolute left-2 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-primary/35 bg-background/80 text-primary transition hover:bg-primary hover:text-primary-foreground"
+                      aria-label="Previous regular sponsors"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={moveRegularCarouselNext}
+                      className="absolute right-2 top-1/2 z-10 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-primary/35 bg-background/80 text-primary transition hover:bg-primary hover:text-primary-foreground"
+                      aria-label="Next regular sponsors"
+                    >
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
                   </Carousel>
                 </div>
               ) : (
