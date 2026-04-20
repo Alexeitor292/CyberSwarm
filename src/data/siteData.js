@@ -77,6 +77,10 @@ export const DEFAULT_SPONSORS_SECTION_CONFIG = {
     'Organizations helping make CyberSwarm possible through direct support, visibility, and community investment.',
   cta_label: '',
   cta_url: '',
+  sponsor_link_label: 'Visit Website',
+  sponsor_profile_label: 'Profile',
+  vip_group_label: 'VIP Sponsors',
+  vip_group_subtitle: 'Front-of-stage partners',
 };
 
 export const DEFAULT_ORGANIZATIONS = [
@@ -579,6 +583,26 @@ export const normalizeSiteContent = (raw) => {
       ),
       cta_label: String(source.sponsorsSection?.cta_label ?? ''),
       cta_url: String(source.sponsorsSection?.cta_url ?? ''),
+      sponsor_link_label: String(
+        source.sponsorsSection?.sponsor_link_label ??
+          source.sponsorsSection?.visit_website_label ??
+          DEFAULT_SPONSORS_SECTION_CONFIG.sponsor_link_label
+      ),
+      sponsor_profile_label: String(
+        source.sponsorsSection?.sponsor_profile_label ??
+          source.sponsorsSection?.profile_label ??
+          DEFAULT_SPONSORS_SECTION_CONFIG.sponsor_profile_label
+      ),
+      vip_group_label: String(
+        source.sponsorsSection?.vip_group_label ??
+          source.sponsorsSection?.vip_label ??
+          DEFAULT_SPONSORS_SECTION_CONFIG.vip_group_label
+      ),
+      vip_group_subtitle: String(
+        source.sponsorsSection?.vip_group_subtitle ??
+          source.sponsorsSection?.vip_subtitle ??
+          DEFAULT_SPONSORS_SECTION_CONFIG.vip_group_subtitle
+      ),
     },
     sponsors: normalizeSponsors(source.sponsors),
     organizationsSection: {

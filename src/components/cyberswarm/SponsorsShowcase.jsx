@@ -7,6 +7,13 @@ import SponsorLogoViewport, {
   clampSponsorLogoOffset,
   clampSponsorLogoScale,
 } from '@/components/cyberswarm/SponsorLogoViewport';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from '@/components/ui/carousel';
 
 /**
  * @typedef {Object} Sponsor
@@ -33,6 +40,10 @@ import SponsorLogoViewport, {
  * @property {string} [description]
  * @property {string} [cta_label]
  * @property {string} [cta_url]
+ * @property {string} [sponsor_link_label]
+ * @property {string} [sponsor_profile_label]
+ * @property {string} [vip_group_label]
+ * @property {string} [vip_group_subtitle]
  */
 
 /**
@@ -75,6 +86,10 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
     data?.operations
   );
   const ctaLabel = sponsorsSection.cta_label || operations?.sponsor_cta_label || '';
+  const sponsorLinkLabel = String(sponsorsSection.sponsor_link_label || 'Visit Website').trim() || 'Visit Website';
+  const sponsorProfileLabel = String(sponsorsSection.sponsor_profile_label || 'Profile').trim() || 'Profile';
+  const vipGroupLabel = String(sponsorsSection.vip_group_label || 'VIP Sponsors').trim() || 'VIP Sponsors';
+  const vipGroupSubtitle = String(sponsorsSection.vip_group_subtitle || 'Front-of-stage partners').trim() || 'Front-of-stage partners';
   const sponsorRows = /** @type {Sponsor[]} */ (Array.isArray(data?.sponsors) ? data.sponsors : []);
   const sponsors = /** @type {Sponsor[]} */ (
     sponsorRows
@@ -84,8 +99,23 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
   );
   const vipSponsors = sponsors.filter((item) => item.vip === true);
   const regularSponsors = sponsors.filter((item) => item.vip !== true);
+  const shouldUseRegularSponsorBand = regularSponsors.length > 3;
+  const regularSponsorCarouselItemClasses = 'h-full';
+  const shouldAutoAdvanceRegularCarousel =
+    shouldUseRegularSponsorBand && !prefersReducedMotion && !editor?.text;
+  const [regularCarouselApi, setRegularCarouselApi] = React.useState(null);
+  React.useEffect(() => {
+    if (!shouldAutoAdvanceRegularCarousel || !regularCarouselApi) return;
+    if (typeof window === 'undefined') return;
+
+    const intervalId = window.setInterval(() => {
+      regularCarouselApi.scrollNext();
+    }, 6500);
+
+    return () => window.clearInterval(intervalId);
+  }, [regularCarouselApi, shouldAutoAdvanceRegularCarousel]);
   /**
-   * @param {'eyebrow' | 'heading' | 'description' | 'cta_label'} key
+   * @param {'eyebrow' | 'heading' | 'description' | 'cta_label' | 'sponsor_link_label' | 'sponsor_profile_label' | 'vip_group_label' | 'vip_group_subtitle'} key
    * @returns {(value: string) => void}
    */
   const setSponsorsSectionField = (key) => (value) => {
@@ -104,10 +134,16 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
   /**
    * @param {Sponsor} sponsor
    * @param {number} index
-   * @param {{ isVip?: boolean, delayIndex?: number }} [options]
+   * @param {{ isVip?: boolean, delayIndex?: number, itemClassName?: string, disableReveal?: boolean, keyPrefix?: string, wrapperTag?: 'li' | 'div' }} [options]
    */
   const renderSponsorCard = (sponsor, index, options = {}) => {
     const isVip = options.isVip === true;
+    const disableReveal = options.disableReveal === true;
+    const itemClassName = String(options.itemClassName || 'h-full').trim();
+    const keyPrefix = String(options.keyPrefix || '').trim();
+    const wrapperTag = options.wrapperTag === 'div' ? 'div' : 'li';
+    const shouldAnimateEntry = !disableReveal && !prefersReducedMotion;
+    const MotionWrapper = wrapperTag === 'div' ? motion.div : motion.li;
     const delayIndex =
       typeof options.delayIndex === 'number' && Number.isFinite(options.delayIndex)
         ? options.delayIndex
@@ -193,7 +229,7 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
 
           <div className="mt-6 flex items-center justify-between gap-4">
             <span className="font-mono text-[0.62rem] uppercase tracking-[0.28em] text-muted-foreground/80">
-              {websiteUrl ? 'Visit Website' : 'Profile'}
+              {websiteUrl ? sponsorLinkLabel : sponsorProfileLabel}
             </span>
             <span className={iconClasses} aria-hidden="true">
               <ArrowUpRight className="h-5 w-5" />
@@ -204,17 +240,17 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
     );
 
     return (
-      <motion.li
-        key={sponsor.id || `${sponsor.name || 'sponsor'}-${sponsor.__index ?? index}`}
-        initial={prefersReducedMotion ? false : { opacity: 0, y: 28 }}
-        whileInView={prefersReducedMotion ? {} : { opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.2 }}
+      <MotionWrapper
+        key={`${keyPrefix}${sponsor.id || `${sponsor.name || 'sponsor'}-${sponsor.__index ?? index}`}`}
+        initial={shouldAnimateEntry ? { opacity: 0, y: 28 } : false}
+        whileInView={shouldAnimateEntry ? { opacity: 1, y: 0 } : undefined}
+        viewport={shouldAnimateEntry ? { once: true, amount: 0.2 } : undefined}
         transition={
-          prefersReducedMotion
-            ? { duration: 0 }
-            : { delay: delayIndex * 0.08, duration: 0.45, ease: 'easeOut' }
+          shouldAnimateEntry
+            ? { delay: delayIndex * 0.08, duration: 0.45, ease: 'easeOut' }
+            : { duration: 0 }
         }
-        className="h-full"
+        className={itemClassName}
       >
         {websiteUrl ? (
           <a
@@ -229,7 +265,7 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
         ) : (
           <div className={cardClasses}>{content}</div>
         )}
-      </motion.li>
+      </MotionWrapper>
     );
   };
   const stageMaxWidth = '72rem';
@@ -380,10 +416,24 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
               <div className="mt-6">
                 <div className="mb-3 flex items-center gap-3">
                   <span className="rounded-full border border-accent/35 bg-accent/10 px-3 py-1 font-mono text-[0.62rem] uppercase tracking-[0.28em] text-accent">
-                    VIP Sponsors
+                    {editor?.text
+                      ? editor.text({
+                          value: vipGroupLabel,
+                          fallback: 'VIP Sponsors',
+                          onChange: setSponsorsSectionField('vip_group_label'),
+                          ariaLabel: 'VIP group label',
+                        })
+                      : vipGroupLabel}
                   </span>
                   <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground/70">
-                    Front-of-stage partners
+                    {editor?.text
+                      ? editor.text({
+                          value: vipGroupSubtitle,
+                          fallback: 'Front-of-stage partners',
+                          onChange: setSponsorsSectionField('vip_group_subtitle'),
+                          ariaLabel: 'VIP group subtitle',
+                        })
+                      : vipGroupSubtitle}
                   </span>
                 </div>
                 <ul className="grid gap-4 xl:grid-cols-2">
@@ -398,15 +448,50 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
             ) : null}
 
             {regularSponsors.length ? (
-              <ul
-                className={`${vipSponsors.length ? 'mt-4' : 'mt-6'} grid gap-4 lg:grid-cols-2 xl:grid-cols-3`}
-              >
-                {regularSponsors.map((sponsor, index) =>
-                  renderSponsorCard(sponsor, index, {
-                    delayIndex: index + vipSponsors.length,
-                  })
-                )}
-              </ul>
+              shouldUseRegularSponsorBand ? (
+                <div className={`${vipSponsors.length ? 'mt-4' : 'mt-6'} px-1 pb-3 pt-1`}>
+                  <Carousel
+                    setApi={setRegularCarouselApi}
+                    opts={{
+                      align: 'start',
+                      containScroll: 'trimSnaps',
+                      loop: true,
+                      skipSnaps: false,
+                      dragFree: false,
+                    }}
+                    className="w-full"
+                  >
+                    <CarouselContent>
+                      {regularSponsors.map((sponsor, index) => (
+                        <CarouselItem
+                          key={`regular-carousel-${sponsor.id || `${sponsor.name || 'sponsor'}-${sponsor.__index ?? index}`}`}
+                          className="basis-full sm:basis-1/2 xl:basis-1/3"
+                        >
+                          {renderSponsorCard(sponsor, index, {
+                            delayIndex: index + vipSponsors.length,
+                            itemClassName: regularSponsorCarouselItemClasses,
+                            disableReveal: true,
+                            keyPrefix: 'set-carousel-',
+                            wrapperTag: 'div',
+                          })}
+                        </CarouselItem>
+                      ))}
+                    </CarouselContent>
+                    <CarouselPrevious className="left-2 top-1/2 h-9 w-9 -translate-y-1/2 border border-primary/35 bg-background/80 text-primary hover:bg-primary hover:text-primary-foreground" />
+                    <CarouselNext className="right-2 top-1/2 h-9 w-9 -translate-y-1/2 border border-primary/35 bg-background/80 text-primary hover:bg-primary hover:text-primary-foreground" />
+                  </Carousel>
+                </div>
+              ) : (
+                <ul
+                  className={`${vipSponsors.length ? 'mt-4' : 'mt-6'} grid gap-4 lg:grid-cols-2 xl:grid-cols-3`}
+                >
+                  {regularSponsors.map((sponsor, index) =>
+                    renderSponsorCard(sponsor, index, {
+                      delayIndex: index + vipSponsors.length,
+                    })
+                  )}
+                </ul>
+              )
             ) : null}
           </div>
         </div>

@@ -2724,6 +2724,42 @@ export default function AdminUI() {
               <input className={fieldClasses} value={draft.sponsorsSection?.eyebrow || ''} onChange={(event) => setField('sponsorsSection', 'eyebrow', event.target.value)} placeholder="Eyebrow label" />
               <input className={fieldClasses} value={draft.sponsorsSection?.heading || ''} onChange={(event) => setField('sponsorsSection', 'heading', event.target.value)} placeholder="Section heading" />
               <textarea className={`${fieldClasses} min-h-28`} value={draft.sponsorsSection?.description || ''} onChange={(event) => setField('sponsorsSection', 'description', event.target.value)} placeholder="Section description" />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  className={fieldClasses}
+                  value={draft.sponsorsSection?.sponsor_link_label || ''}
+                  onChange={(event) =>
+                    setField('sponsorsSection', 'sponsor_link_label', event.target.value)
+                  }
+                  placeholder="Label when website exists (e.g. Visit Website)"
+                />
+                <input
+                  className={fieldClasses}
+                  value={draft.sponsorsSection?.sponsor_profile_label || ''}
+                  onChange={(event) =>
+                    setField('sponsorsSection', 'sponsor_profile_label', event.target.value)
+                  }
+                  placeholder="Label when no website (e.g. Profile)"
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  className={fieldClasses}
+                  value={draft.sponsorsSection?.vip_group_label || ''}
+                  onChange={(event) =>
+                    setField('sponsorsSection', 'vip_group_label', event.target.value)
+                  }
+                  placeholder="VIP group label"
+                />
+                <input
+                  className={fieldClasses}
+                  value={draft.sponsorsSection?.vip_group_subtitle || ''}
+                  onChange={(event) =>
+                    setField('sponsorsSection', 'vip_group_subtitle', event.target.value)
+                  }
+                  placeholder="VIP subtitle label"
+                />
+              </div>
               <div className={itemCardClasses}>
                 <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted-foreground/70">Sponsor Button</p>
                 <p className="font-heading text-xl text-foreground">{sponsorCtaLabel}</p>
