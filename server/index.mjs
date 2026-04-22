@@ -537,6 +537,30 @@ const buildRfc822Message = ({ from, to, subject, text, replyTo }) => {
   return Buffer.from(`${headers.join('\r\n')}\r\n\r\n${text}`, 'utf8').toString('base64url');
 };
 
+const withInlineStyle = (tag, rule) => {
+  if (!tag || !rule) return tag;
+  const stylePattern = /\sstyle\s*=\s*(['"])(.*?)\1/i;
+  if (!stylePattern.test(tag)) {
+    return tag.replace(/>$/, ` style="${rule}">`);
+  }
+  return tag.replace(stylePattern, (full, quote, styleValue = '') => {
+    if (new RegExp(`(^|;)\\s*${rule.split(':')[0]}\\s*:`, 'i').test(styleValue)) {
+      return full;
+    }
+    const suffix = styleValue.trim() && !styleValue.trim().endsWith(';') ? ';' : '';
+    return ` style=${quote}${styleValue}${suffix}${rule}${quote}`;
+  });
+};
+
+const normalizeMailingHtml = (value) => {
+  const raw = stringValue(value, SMTP_BODY_LIMIT_BYTES);
+  if (!raw) return '';
+
+  // ReactQuill emits line breaks as <p> tags. Most mail clients apply default
+  // paragraph margins, which makes a single Enter look like a double-spaced line.
+  return raw.replace(/<p(?:\s[^>]*)?>/gi, (tag) => withInlineStyle(tag, 'margin:0;'));
+};
+
 const sendGmailApiEmail = async ({ from, to, subject, text, replyTo }) => {
   const senderEmail = from || GMAIL_NOTIFY_FROM;
   if (!senderEmail || !isValidEmail(senderEmail)) {
@@ -590,8 +614,9 @@ const buildRfc822MessageWithHtml = ({ from, to, cc = [], bcc = [], subject, html
   if (messageId) headers.push(`Message-ID: ${messageId}`);
 
   const textPart = text ? `--${boundaries.alternative}\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${Buffer.from(text, 'utf8').toString('base64')}\r\n` : '';
+  const normalizedHtml = normalizeMailingHtml(html);
 
-  const htmlPart = html ? `--${boundaries.alternative}\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${Buffer.from(html, 'utf8').toString('base64')}\r\n` : '';
+  const htmlPart = normalizedHtml ? `--${boundaries.alternative}\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${Buffer.from(normalizedHtml, 'utf8').toString('base64')}\r\n` : '';
 
   const emailBody = `${headers.join('\r\n')}\r\n\r\n${textPart}${htmlPart}--${boundaries.alternative}--`;
 
