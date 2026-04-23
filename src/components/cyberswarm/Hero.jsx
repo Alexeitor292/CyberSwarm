@@ -94,8 +94,11 @@ export default function Hero({
   const presentationMarqueeDuration = clampPresentationMarqueeDuration(
     hero?.presentation_marquee_duration_seconds
   );
+  const marqueeViewportRef = useRef(null);
   const marqueeLoopRef = useRef(null);
   const [marqueeLoopWidth, setMarqueeLoopWidth] = useState(0);
+  const [marqueeViewportWidth, setMarqueeViewportWidth] = useState(0);
+  const [marqueeImagesReady, setMarqueeImagesReady] = useState(false);
   const sponsorMarqueeItems = useMemo(() => {
     const rows = Array.isArray(data?.sponsors) ? data.sponsors : [];
     return rows
@@ -152,17 +155,34 @@ export default function Hero({
   useEffect(() => {
     if (!showSponsorMarquee || !sponsorMarqueeItems.length) {
       setMarqueeLoopWidth(0);
+      setMarqueeViewportWidth(0);
+      setMarqueeImagesReady(false);
       return undefined;
     }
 
-    const node = marqueeLoopRef.current;
-    if (!node) return undefined;
+    const loopNode = marqueeLoopRef.current;
+    const viewportNode = marqueeViewportRef.current;
+    if (!loopNode || !viewportNode) return undefined;
+
+    const images = Array.from(loopNode.querySelectorAll('img'));
+    const allImagesLoaded = () =>
+      images.every((image) => image.complete && image.naturalWidth > 0);
+
+    setMarqueeImagesReady(images.length === 0 ? true : allImagesLoaded());
 
     let rafId = 0;
     const measure = () => {
-      const width = Math.round(node.getBoundingClientRect().width);
-      if (!width) return;
-      setMarqueeLoopWidth((prev) => (prev === width ? prev : width));
+      const loopWidth = loopNode.getBoundingClientRect().width;
+      const viewportWidth = viewportNode.getBoundingClientRect().width;
+
+      if (loopWidth > 0) {
+        setMarqueeLoopWidth((prev) => (Math.abs(prev - loopWidth) < 0.5 ? prev : loopWidth));
+      }
+      if (viewportWidth > 0) {
+        setMarqueeViewportWidth((prev) =>
+          Math.abs(prev - viewportWidth) < 0.5 ? prev : viewportWidth
+        );
+      }
     };
     const scheduleMeasure = () => {
       if (rafId) cancelAnimationFrame(rafId);
@@ -176,12 +196,15 @@ export default function Hero({
       resizeObserver = new ResizeObserver(() => {
         scheduleMeasure();
       });
-      resizeObserver.observe(node);
+      resizeObserver.observe(loopNode);
+      resizeObserver.observe(viewportNode);
     }
 
-    const images = Array.from(node.querySelectorAll('img'));
     const handleImageLoad = () => {
       scheduleMeasure();
+      if (allImagesLoaded()) {
+        setMarqueeImagesReady(true);
+      }
     };
     images.forEach((image) => {
       if (!image.complete) {
@@ -206,8 +229,15 @@ export default function Hero({
     { label: 'Minutes', value: countdown.mins },
     { label: 'Seconds', value: countdown.secs },
   ];
+  const marqueeCopyCount = useMemo(() => {
+    if (marqueeLoopWidth <= 0 || marqueeViewportWidth <= 0) return 2;
+    return Math.max(2, Math.ceil(marqueeViewportWidth / marqueeLoopWidth) + 2);
+  }, [marqueeLoopWidth, marqueeViewportWidth]);
   const marqueeCanAnimate =
-    !prefersReducedMotion && sponsorMarqueeItems.length > 0 && marqueeLoopWidth > 0;
+    !prefersReducedMotion &&
+    sponsorMarqueeItems.length > 0 &&
+    marqueeLoopWidth > 0 &&
+    marqueeImagesReady;
   const renderSponsorMarqueeItem = (sponsor, keyPrefix = 'marquee') => {
     const name = String(sponsor?.name || 'Sponsor').trim() || 'Sponsor';
     const logoUrl = String(sponsor?.logo_url || '').trim();
@@ -252,7 +282,8 @@ export default function Hero({
                 filter:
                   'drop-shadow(0 0 6px rgba(0,0,0,0.2)) drop-shadow(0 0 1px rgba(0,0,0,0.25))',
               }}
-              loading="lazy"
+              loading="eager"
+              decoding="async"
             />
           ) : (
             <span
@@ -380,6 +411,7 @@ export default function Hero({
             aria-label="Featured sponsor logos"
           >
             <div
+              ref={marqueeViewportRef}
               className="relative overflow-hidden rounded-full border border-primary/30 bg-[rgba(237,239,242,0.93)] shadow-[0_0_32px_hsl(var(--primary)/0.1)]"
               style={{ height: `${PRESENTATION_MARQUEE_BAND_HEIGHT_PX}px` }}
             >
@@ -393,7 +425,6 @@ export default function Hero({
               />
               <motion.div
                 className="flex h-full w-max"
-                key={`marquee-${marqueeLoopWidth}`}
                 animate={marqueeCanAnimate ? { x: [0, -marqueeLoopWidth] } : { x: 0 }}
                 transition={
                   marqueeCanAnimate
@@ -406,11 +437,17 @@ export default function Hero({
                     renderSponsorMarqueeItem(sponsor, `loop-a-${index}`)
                   )}
                 </ul>
-                <ul aria-hidden="true" className="flex h-full w-max items-center gap-0 px-8">
-                  {sponsorMarqueeItems.map((sponsor, index) =>
-                    renderSponsorMarqueeItem(sponsor, `loop-b-${index}`)
-                  )}
-                </ul>
+                {Array.from({ length: marqueeCopyCount - 1 }, (_unused, copyIndex) => (
+                  <ul
+                    key={`marquee-copy-${copyIndex}`}
+                    aria-hidden="true"
+                    className="flex h-full w-max items-center gap-0 px-8"
+                  >
+                    {sponsorMarqueeItems.map((sponsor, index) =>
+                      renderSponsorMarqueeItem(sponsor, `loop-${copyIndex + 1}-${index}`)
+                    )}
+                  </ul>
+                ))}
               </motion.div>
             </div>
           </motion.div>
