@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { useSiteContent } from '@/hooks/use-site-content';
@@ -94,6 +94,8 @@ export default function Hero({
   const presentationMarqueeDuration = clampPresentationMarqueeDuration(
     hero?.presentation_marquee_duration_seconds
   );
+  const marqueeLoopRef = useRef(null);
+  const [marqueeLoopWidth, setMarqueeLoopWidth] = useState(0);
   const sponsorMarqueeItems = useMemo(() => {
     const rows = Array.isArray(data?.sponsors) ? data.sponsors : [];
     return rows
@@ -101,10 +103,6 @@ export default function Hero({
       .filter((item) => item.active !== false && (item.logo_url || item.name))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [data?.sponsors]);
-  const sponsorMarqueeLoop = useMemo(
-    () => (sponsorMarqueeItems.length ? [...sponsorMarqueeItems, ...sponsorMarqueeItems] : []),
-    [sponsorMarqueeItems]
-  );
   const handleJumpToAgenda = useCallback((event) => {
     event.preventDefault();
 
@@ -151,12 +149,127 @@ export default function Hero({
     return () => clearInterval(interval);
   }, [eventConfig.event_date, eventConfig.event_time, hero.countdown_target, showCountdown]);
 
+  useEffect(() => {
+    if (!showSponsorMarquee || !sponsorMarqueeItems.length) {
+      setMarqueeLoopWidth(0);
+      return undefined;
+    }
+
+    const node = marqueeLoopRef.current;
+    if (!node) return undefined;
+
+    let rafId = 0;
+    const measure = () => {
+      const width = Math.round(node.getBoundingClientRect().width);
+      if (!width) return;
+      setMarqueeLoopWidth((prev) => (prev === width ? prev : width));
+    };
+    const scheduleMeasure = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(measure);
+    };
+
+    measure();
+
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        scheduleMeasure();
+      });
+      resizeObserver.observe(node);
+    }
+
+    const images = Array.from(node.querySelectorAll('img'));
+    const handleImageLoad = () => {
+      scheduleMeasure();
+    };
+    images.forEach((image) => {
+      if (!image.complete) {
+        image.addEventListener('load', handleImageLoad);
+        image.addEventListener('error', handleImageLoad);
+      }
+    });
+
+    return () => {
+      if (resizeObserver) resizeObserver.disconnect();
+      images.forEach((image) => {
+        image.removeEventListener('load', handleImageLoad);
+        image.removeEventListener('error', handleImageLoad);
+      });
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [showSponsorMarquee, sponsorMarqueeItems]);
+
   const countdownItems = [
     { label: 'Days', value: countdown.days },
     { label: 'Hours', value: countdown.hours },
     { label: 'Minutes', value: countdown.mins },
     { label: 'Seconds', value: countdown.secs },
   ];
+  const marqueeCanAnimate =
+    !prefersReducedMotion && sponsorMarqueeItems.length > 0 && marqueeLoopWidth > 0;
+  const renderSponsorMarqueeItem = (sponsor, keyPrefix = 'marquee') => {
+    const name = String(sponsor?.name || 'Sponsor').trim() || 'Sponsor';
+    const logoUrl = String(sponsor?.logo_url || '').trim();
+    const presentationLogoScale = clampPresentationMarqueeLogoScale(
+      sponsor?.presentation_logo_scale
+    );
+    const logoHeightPx = Math.round(
+      (PRESENTATION_MARQUEE_BASE_LOGO_HEIGHT_PX * presentationLogoScale) / 100
+    );
+    const logoMaxWidthPx = Math.round(
+      (PRESENTATION_MARQUEE_BASE_LOGO_MAX_WIDTH_PX * presentationLogoScale) / 100
+    );
+    const fallbackFontSizePx = Math.round(
+      (PRESENTATION_MARQUEE_BASE_FALLBACK_FONT_SIZE_PX * presentationLogoScale) / 100
+    );
+    const logoLeftSpacingPx = clampPresentationMarqueeLogoSpacing(
+      sponsor?.presentation_logo_spacing_left_px
+    );
+    const logoRightSpacingPx = clampPresentationMarqueeLogoSpacing(
+      sponsor?.presentation_logo_spacing_right_px
+    );
+    const key = `${keyPrefix}-${sponsor?.id || sponsor?.__index || name}`;
+
+    return (
+      <li
+        key={key}
+        className="h-full shrink-0 overflow-hidden"
+        style={{
+          paddingLeft: `${logoLeftSpacingPx}px`,
+          paddingRight: `${logoRightSpacingPx}px`,
+        }}
+      >
+        <div className="flex h-full items-center">
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={`${name} logo`}
+              className="block w-auto max-w-none object-contain opacity-95"
+              style={{
+                height: `${logoHeightPx}px`,
+                maxWidth: `${logoMaxWidthPx}px`,
+                filter:
+                  'drop-shadow(0 0 6px rgba(0,0,0,0.2)) drop-shadow(0 0 1px rgba(0,0,0,0.25))',
+              }}
+              loading="lazy"
+            />
+          ) : (
+            <span
+              className="font-heading uppercase tracking-[0.16em] text-slate-900/85"
+              style={{
+                fontSize: `${fallbackFontSizePx}px`,
+                lineHeight: 1,
+                textShadow: '0 0 6px rgba(0,0,0,0.2)',
+              }}
+            >
+              {name}
+            </span>
+          )}
+        </div>
+      </li>
+    );
+  };
 
   return (
     <section
@@ -258,7 +371,7 @@ export default function Hero({
           </motion.p>
         ) : null}
 
-        {showSponsorMarquee && sponsorMarqueeLoop.length ? (
+        {showSponsorMarquee && sponsorMarqueeItems.length ? (
           <motion.div
             initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
             animate={prefersReducedMotion ? {} : { opacity: 1, y: 0 }}
@@ -278,78 +391,27 @@ export default function Hero({
                 className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[rgba(237,239,242,0.93)] to-transparent"
                 aria-hidden="true"
               />
-              <motion.ul
-                className="flex h-full w-max items-center gap-0 px-8"
-                animate={prefersReducedMotion ? {} : { x: ['0%', '-50%'] }}
+              <motion.div
+                className="flex h-full w-max"
+                key={`marquee-${marqueeLoopWidth}`}
+                animate={marqueeCanAnimate ? { x: [0, -marqueeLoopWidth] } : { x: 0 }}
                 transition={
-                  prefersReducedMotion
-                    ? { duration: 0 }
-                    : { duration: presentationMarqueeDuration, ease: 'linear', repeat: Infinity }
+                  marqueeCanAnimate
+                    ? { duration: presentationMarqueeDuration, ease: 'linear', repeat: Infinity }
+                    : { duration: 0 }
                 }
               >
-                {sponsorMarqueeLoop.map((sponsor, index) => {
-                  const name = String(sponsor?.name || 'Sponsor').trim() || 'Sponsor';
-                  const logoUrl = String(sponsor?.logo_url || '').trim();
-                  const presentationLogoScale = clampPresentationMarqueeLogoScale(
-                    sponsor?.presentation_logo_scale
-                  );
-                  const logoHeightPx = Math.round(
-                    (PRESENTATION_MARQUEE_BASE_LOGO_HEIGHT_PX * presentationLogoScale) / 100
-                  );
-                  const logoMaxWidthPx = Math.round(
-                    (PRESENTATION_MARQUEE_BASE_LOGO_MAX_WIDTH_PX * presentationLogoScale) / 100
-                  );
-                  const fallbackFontSizePx = Math.round(
-                    (PRESENTATION_MARQUEE_BASE_FALLBACK_FONT_SIZE_PX * presentationLogoScale) / 100
-                  );
-                  const logoLeftSpacingPx = clampPresentationMarqueeLogoSpacing(
-                    sponsor?.presentation_logo_spacing_left_px
-                  );
-                  const logoRightSpacingPx = clampPresentationMarqueeLogoSpacing(
-                    sponsor?.presentation_logo_spacing_right_px
-                  );
-                  const key = `${sponsor?.id || sponsor?.__index || name}-${index}`;
-
-                  return (
-                    <li
-                      key={key}
-                      className="h-full shrink-0 overflow-hidden"
-                      style={{
-                        paddingLeft: `${logoLeftSpacingPx}px`,
-                        paddingRight: `${logoRightSpacingPx}px`,
-                      }}
-                    >
-                      <div className="flex h-full items-center">
-                        {logoUrl ? (
-                          <img
-                            src={logoUrl}
-                            alt={`${name} logo`}
-                            className="block w-auto max-w-none object-contain opacity-95"
-                            style={{
-                              height: `${logoHeightPx}px`,
-                              maxWidth: `${logoMaxWidthPx}px`,
-                              filter:
-                                'drop-shadow(0 0 6px rgba(0,0,0,0.2)) drop-shadow(0 0 1px rgba(0,0,0,0.25))',
-                            }}
-                            loading="lazy"
-                          />
-                        ) : (
-                          <span
-                            className="font-heading uppercase tracking-[0.16em] text-slate-900/85"
-                            style={{
-                              fontSize: `${fallbackFontSizePx}px`,
-                              lineHeight: 1,
-                              textShadow: '0 0 6px rgba(0,0,0,0.2)',
-                            }}
-                          >
-                            {name}
-                          </span>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </motion.ul>
+                <ul ref={marqueeLoopRef} className="flex h-full w-max items-center gap-0 px-8">
+                  {sponsorMarqueeItems.map((sponsor, index) =>
+                    renderSponsorMarqueeItem(sponsor, `loop-a-${index}`)
+                  )}
+                </ul>
+                <ul aria-hidden="true" className="flex h-full w-max items-center gap-0 px-8">
+                  {sponsorMarqueeItems.map((sponsor, index) =>
+                    renderSponsorMarqueeItem(sponsor, `loop-b-${index}`)
+                  )}
+                </ul>
+              </motion.div>
             </div>
           </motion.div>
         ) : null}
