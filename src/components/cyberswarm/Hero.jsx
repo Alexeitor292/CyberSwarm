@@ -42,6 +42,12 @@ const clampPresentationMarqueeDuration = (value) => {
   return Math.min(240, Math.max(20, Math.round(seconds)));
 };
 
+const clampPresentationMarqueeLogoSpacing = (value) => {
+  const spacing = Number(value);
+  if (!Number.isFinite(spacing)) return 28;
+  return Math.min(240, Math.max(0, Math.round(spacing)));
+};
+
 const PRESENTATION_MARQUEE_BAND_HEIGHT_PX = 128;
 const PRESENTATION_MARQUEE_BASE_LOGO_HEIGHT_PX = 96;
 const PRESENTATION_MARQUEE_BASE_LOGO_MAX_WIDTH_PX = 420;
@@ -273,7 +279,7 @@ export default function Hero({
                 aria-hidden="true"
               />
               <motion.ul
-                className="flex h-full w-max items-center gap-14 px-8"
+                className="flex h-full w-max items-center gap-0 px-8"
                 animate={prefersReducedMotion ? {} : { x: ['0%', '-50%'] }}
                 transition={
                   prefersReducedMotion
@@ -296,10 +302,23 @@ export default function Hero({
                   const fallbackFontSizePx = Math.round(
                     (PRESENTATION_MARQUEE_BASE_FALLBACK_FONT_SIZE_PX * presentationLogoScale) / 100
                   );
+                  const logoLeftSpacingPx = clampPresentationMarqueeLogoSpacing(
+                    sponsor?.presentation_logo_spacing_left_px
+                  );
+                  const logoRightSpacingPx = clampPresentationMarqueeLogoSpacing(
+                    sponsor?.presentation_logo_spacing_right_px
+                  );
                   const key = `${sponsor?.id || sponsor?.__index || name}-${index}`;
 
                   return (
-                    <li key={key} className="h-full shrink-0 overflow-hidden">
+                    <li
+                      key={key}
+                      className="h-full shrink-0 overflow-hidden"
+                      style={{
+                        paddingLeft: `${logoLeftSpacingPx}px`,
+                        paddingRight: `${logoRightSpacingPx}px`,
+                      }}
+                    >
                       <div className="flex h-full items-center">
                         {logoUrl ? (
                           <img

@@ -274,6 +274,12 @@ const normalizePresentationLogoScale = (value) => {
   return Math.min(240, Math.max(50, Math.round(scale)));
 };
 
+const normalizePresentationLogoSpacingPx = (value) => {
+  const spacing = Number(value);
+  if (!Number.isFinite(spacing)) return 28;
+  return Math.min(240, Math.max(0, Math.round(spacing)));
+};
+
 const normalizeSponsorLogoOffset = (value) => {
   const offset = Number(value);
   if (!Number.isFinite(offset)) return 0;
@@ -321,6 +327,8 @@ const normalizeSponsors = (value) => {
         logo_background_color: '#ffffff',
         logo_scale: 110,
         presentation_logo_scale: 100,
+        presentation_logo_spacing_left_px: 28,
+        presentation_logo_spacing_right_px: 28,
         logo_offset_x: 0,
         logo_offset_y: 0,
         order: index + 1,
@@ -349,6 +357,12 @@ const normalizeSponsors = (value) => {
       logo_scale: normalizeSponsorLogoScale(row.logo_scale),
       presentation_logo_scale: normalizePresentationLogoScale(
         row.presentation_logo_scale ?? row.presentationLogoScale
+      ),
+      presentation_logo_spacing_left_px: normalizePresentationLogoSpacingPx(
+        row.presentation_logo_spacing_left_px ?? row.presentationLogoSpacingLeftPx
+      ),
+      presentation_logo_spacing_right_px: normalizePresentationLogoSpacingPx(
+        row.presentation_logo_spacing_right_px ?? row.presentationLogoSpacingRightPx
       ),
       logo_offset_x: normalizeSponsorLogoOffset(row.logo_offset_x ?? row.logoOffsetX),
       logo_offset_y: normalizeSponsorLogoOffset(row.logo_offset_y ?? row.logoOffsetY),

@@ -294,6 +294,12 @@ const clampPresentationMarqueeDuration = (value) => {
   return Math.min(240, Math.max(20, Math.round(seconds)));
 };
 
+const clampPresentationLogoSpacingPx = (value) => {
+  const spacing = Number(value);
+  if (!Number.isFinite(spacing)) return 28;
+  return Math.min(240, Math.max(0, Math.round(spacing)));
+};
+
 const collectCustomColorFrameDowngrades = (beforeContent, afterContent) => {
   const beforeSponsors = Array.isArray(beforeContent?.sponsors) ? beforeContent.sponsors : [];
   const afterSponsors = Array.isArray(afterContent?.sponsors) ? afterContent.sponsors : [];
@@ -798,6 +804,34 @@ export default function AdminUI() {
       sponsors[index] = {
         ...current,
         presentation_logo_scale: nextScale,
+      };
+
+      return { ...prev, sponsors };
+    });
+  };
+
+  const setPresentationLogoSpacing = (index, side, value) => {
+    if (!Number.isInteger(index) || index < 0) return;
+    if (side !== 'left' && side !== 'right') return;
+
+    updateDraft((prev) => {
+      const sponsors = Array.isArray(prev.sponsors) ? [...prev.sponsors] : [];
+      const current = sponsors[index];
+      if (!current) return prev;
+
+      const nextSpacing = clampPresentationLogoSpacingPx(value);
+      const currentSpacing = clampPresentationLogoSpacingPx(
+        side === 'left'
+          ? current.presentation_logo_spacing_left_px
+          : current.presentation_logo_spacing_right_px
+      );
+      if (nextSpacing === currentSpacing) return prev;
+
+      sponsors[index] = {
+        ...current,
+        ...(side === 'left'
+          ? { presentation_logo_spacing_left_px: nextSpacing }
+          : { presentation_logo_spacing_right_px: nextSpacing }),
       };
 
       return { ...prev, sponsors };
@@ -1826,6 +1860,8 @@ export default function AdminUI() {
       logo_background_color: sponsorLogoBackgroundDefaultColor,
       logo_scale: 110,
       presentation_logo_scale: 100,
+      presentation_logo_spacing_left_px: 28,
+      presentation_logo_spacing_right_px: 28,
       logo_offset_x: 0,
       logo_offset_y: 0,
       order: (Array.isArray(draft?.sponsors) ? draft.sponsors.length : 0) + 1,
@@ -2676,6 +2712,8 @@ export default function AdminUI() {
                 logo_background_color: sponsorLogoBackgroundDefaultColor,
                 logo_scale: 110,
                 presentation_logo_scale: 100,
+                presentation_logo_spacing_left_px: 28,
+                presentation_logo_spacing_right_px: 28,
                 logo_offset_x: 0,
                 logo_offset_y: 0,
                 order: (prev.sponsors || []).length + 1,
@@ -3088,6 +3126,12 @@ export default function AdminUI() {
     const selectedPresentationLogoScale = clampPresentationLogoScale(
       selectedPresentationSponsor?.presentation_logo_scale
     );
+    const selectedPresentationLogoLeftSpacing = clampPresentationLogoSpacingPx(
+      selectedPresentationSponsor?.presentation_logo_spacing_left_px
+    );
+    const selectedPresentationLogoRightSpacing = clampPresentationLogoSpacingPx(
+      selectedPresentationSponsor?.presentation_logo_spacing_right_px
+    );
     const selectedPresentationLogoHeight = Math.round((96 * selectedPresentationLogoScale) / 100);
     const selectedPresentationLogoMaxWidth = Math.round((420 * selectedPresentationLogoScale) / 100);
     const presentationMarqueeDurationSeconds = clampPresentationMarqueeDuration(
@@ -3097,6 +3141,14 @@ export default function AdminUI() {
     const updateSelectedPresentationScale = (value) => {
       if (selectedPresentationSponsorDataIndex < 0) return;
       setPresentationLogoScale(selectedPresentationSponsorDataIndex, value);
+    };
+    const updateSelectedPresentationLeftSpacing = (value) => {
+      if (selectedPresentationSponsorDataIndex < 0) return;
+      setPresentationLogoSpacing(selectedPresentationSponsorDataIndex, 'left', value);
+    };
+    const updateSelectedPresentationRightSpacing = (value) => {
+      if (selectedPresentationSponsorDataIndex < 0) return;
+      setPresentationLogoSpacing(selectedPresentationSponsorDataIndex, 'right', value);
     };
     const updatePresentationMarqueeDuration = (value) => {
       setField(
@@ -3111,7 +3163,7 @@ export default function AdminUI() {
         <Section
           eyebrow="Presentation Builder"
           title="Projector Intro Canvas"
-          description="Edit the /presentation intro slide with click-to-edit text and per-logo marquee sizing."
+          description="Edit the /presentation intro slide with click-to-edit text plus per-logo marquee sizing and spacing."
         >
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.82fr)]">
             <div className="min-w-0 space-y-4">
@@ -3148,7 +3200,7 @@ export default function AdminUI() {
                   Presentation Notes
                 </p>
                 <p className="font-mono text-xs leading-6 text-muted-foreground/75">
-                  This tab controls the /presentation intro slide: title copy and sponsor marquee sizing.
+                  This tab controls the /presentation intro slide: title copy and sponsor marquee sizing and spacing.
                   The Sponsors page still controls sponsor card framing for the public homepage.
                 </p>
               </div>
@@ -3237,6 +3289,12 @@ export default function AdminUI() {
                       {presentationSponsorEntries.map(({ sponsor, index }, listIndex) => {
                         const isActive = listIndex === selectedPresentationSponsorIndex;
                         const scale = clampPresentationLogoScale(sponsor?.presentation_logo_scale);
+                        const leftSpacing = clampPresentationLogoSpacingPx(
+                          sponsor?.presentation_logo_spacing_left_px
+                        );
+                        const rightSpacing = clampPresentationLogoSpacingPx(
+                          sponsor?.presentation_logo_spacing_right_px
+                        );
 
                         return (
                           <button
@@ -3254,7 +3312,7 @@ export default function AdminUI() {
                                 {sponsor.name || 'Unnamed sponsor'}
                               </p>
                               <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary/80">
-                                {scale}%
+                                {scale}% | L{leftSpacing}/R{rightSpacing}
                               </span>
                             </div>
                           </button>
@@ -3265,31 +3323,39 @@ export default function AdminUI() {
                     {selectedPresentationSponsor ? (
                       <div className="mt-4 space-y-3">
                         <div className="h-32 overflow-hidden rounded-full border border-primary/30 bg-[rgba(237,239,242,0.93)] px-4">
-                          <div className="flex h-full items-center justify-center">
-                            {selectedPresentationSponsor.logo_url ? (
-                              <img
-                                src={selectedPresentationSponsor.logo_url}
-                                alt={`${selectedPresentationSponsor.name || 'Sponsor'} logo preview`}
-                                className="w-auto object-contain opacity-95"
-                                style={{
-                                  height: `${selectedPresentationLogoHeight}px`,
-                                  maxWidth: `${selectedPresentationLogoMaxWidth}px`,
-                                  filter:
-                                    'drop-shadow(0 0 6px rgba(0,0,0,0.2)) drop-shadow(0 0 1px rgba(0,0,0,0.25))',
-                                }}
-                              />
-                            ) : (
-                              <p
-                                className="font-heading uppercase tracking-[0.16em] text-slate-900/85"
-                                style={{
-                                  fontSize: `${Math.round((36 * selectedPresentationLogoScale) / 100)}px`,
-                                  lineHeight: 1,
-                                  textShadow: '0 0 6px rgba(0,0,0,0.2)',
-                                }}
-                              >
-                                {selectedPresentationSponsor.name || 'Sponsor'}
-                              </p>
-                            )}
+                          <div className="flex h-full items-center justify-center overflow-hidden">
+                            <div
+                              className="flex h-full shrink-0 items-center"
+                              style={{
+                                paddingLeft: `${selectedPresentationLogoLeftSpacing}px`,
+                                paddingRight: `${selectedPresentationLogoRightSpacing}px`,
+                              }}
+                            >
+                              {selectedPresentationSponsor.logo_url ? (
+                                <img
+                                  src={selectedPresentationSponsor.logo_url}
+                                  alt={`${selectedPresentationSponsor.name || 'Sponsor'} logo preview`}
+                                  className="w-auto object-contain opacity-95"
+                                  style={{
+                                    height: `${selectedPresentationLogoHeight}px`,
+                                    maxWidth: `${selectedPresentationLogoMaxWidth}px`,
+                                    filter:
+                                      'drop-shadow(0 0 6px rgba(0,0,0,0.2)) drop-shadow(0 0 1px rgba(0,0,0,0.25))',
+                                  }}
+                                />
+                              ) : (
+                                <p
+                                  className="font-heading uppercase tracking-[0.16em] text-slate-900/85"
+                                  style={{
+                                    fontSize: `${Math.round((36 * selectedPresentationLogoScale) / 100)}px`,
+                                    lineHeight: 1,
+                                    textShadow: '0 0 6px rgba(0,0,0,0.2)',
+                                  }}
+                                >
+                                  {selectedPresentationSponsor.name || 'Sponsor'}
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -3329,6 +3395,73 @@ export default function AdminUI() {
                             Reset To 100%
                           </button>
                         </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="block space-y-1">
+                            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                              Left Space ({selectedPresentationLogoLeftSpacing}px)
+                            </span>
+                            <input
+                              type="range"
+                              min="0"
+                              max="240"
+                              step="1"
+                              className="w-full accent-primary"
+                              value={selectedPresentationLogoLeftSpacing}
+                              onChange={(event) =>
+                                updateSelectedPresentationLeftSpacing(Number(event.target.value))
+                              }
+                            />
+                            <input
+                              type="number"
+                              min="0"
+                              max="240"
+                              className={fieldClasses}
+                              value={selectedPresentationLogoLeftSpacing}
+                              onChange={(event) =>
+                                updateSelectedPresentationLeftSpacing(Number(event.target.value))
+                              }
+                            />
+                          </label>
+
+                          <label className="block space-y-1">
+                            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                              Right Space ({selectedPresentationLogoRightSpacing}px)
+                            </span>
+                            <input
+                              type="range"
+                              min="0"
+                              max="240"
+                              step="1"
+                              className="w-full accent-primary"
+                              value={selectedPresentationLogoRightSpacing}
+                              onChange={(event) =>
+                                updateSelectedPresentationRightSpacing(Number(event.target.value))
+                              }
+                            />
+                            <input
+                              type="number"
+                              min="0"
+                              max="240"
+                              className={fieldClasses}
+                              value={selectedPresentationLogoRightSpacing}
+                              onChange={(event) =>
+                                updateSelectedPresentationRightSpacing(Number(event.target.value))
+                              }
+                            />
+                          </label>
+                        </div>
+
+                        <button
+                          type="button"
+                          className={outlineButtonClasses}
+                          onClick={() => {
+                            updateSelectedPresentationLeftSpacing(28);
+                            updateSelectedPresentationRightSpacing(28);
+                          }}
+                        >
+                          Reset Spacing To 28px
+                        </button>
                       </div>
                     ) : null}
                   </>
@@ -3639,6 +3772,8 @@ export default function AdminUI() {
                             logo_background_color: sponsorLogoBackgroundDefaultColor,
                             logo_scale: 110,
                             presentation_logo_scale: 100,
+                            presentation_logo_spacing_left_px: 28,
+                            presentation_logo_spacing_right_px: 28,
                             logo_offset_x: 0,
                             logo_offset_y: 0,
                             order: (prev.sponsors || []).length + 1,
