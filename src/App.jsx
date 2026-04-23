@@ -7,6 +7,7 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Admin from '@/pages/Admin';
+import Presentation from '@/pages/Presentation';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -47,6 +48,11 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route path="/admin/*" element={<Admin />} />
+      <Route path="/presentation" element={
+        <LayoutWrapper currentPageName="presentation">
+          <Presentation />
+        </LayoutWrapper>
+      } />
       <Route path="/" element={
         <LayoutWrapper currentPageName={mainPageKey}>
           <MainPage />

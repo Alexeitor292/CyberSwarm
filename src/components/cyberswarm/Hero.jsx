@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { useSiteContent } from '@/hooks/use-site-content';
@@ -30,6 +30,23 @@ const parseTimeFromEventWindow = (value) => {
   return { hours: hoursRaw, minutes };
 };
 
+const clampPresentationMarqueeLogoScale = (value) => {
+  const scale = Number(value);
+  if (!Number.isFinite(scale)) return 100;
+  return Math.min(240, Math.max(50, Math.round(scale)));
+};
+
+const clampPresentationMarqueeDuration = (value) => {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds)) return 85;
+  return Math.min(240, Math.max(20, Math.round(seconds)));
+};
+
+const PRESENTATION_MARQUEE_BAND_HEIGHT_PX = 128;
+const PRESENTATION_MARQUEE_BASE_LOGO_HEIGHT_PX = 96;
+const PRESENTATION_MARQUEE_BASE_LOGO_MAX_WIDTH_PX = 420;
+const PRESENTATION_MARQUEE_BASE_FALLBACK_FONT_SIZE_PX = 36;
+
 const resolveCountdownDate = (eventConfig, hero) => {
   const eventDate = String(eventConfig?.event_date || '').trim();
   if (eventDate) {
@@ -45,15 +62,43 @@ const resolveCountdownDate = (eventConfig, hero) => {
 };
 
 /**
- * @param {{ content?: import('@/data/siteData').DEFAULT_SITE_CONTENT | undefined, editor?: any }} props
+ * @param {{
+ *   content?: import('@/data/siteData').DEFAULT_SITE_CONTENT | undefined,
+ *   editor?: any,
+ *   showCountdown?: boolean,
+ *   showSubtitle?: boolean,
+ *   showCta?: boolean,
+ *   showSponsorMarquee?: boolean,
+ * }} props
  */
-export default function Hero({ content, editor } = {}) {
+export default function Hero({
+  content,
+  editor,
+  showCountdown = true,
+  showSubtitle = true,
+  showCta = true,
+  showSponsorMarquee = false,
+} = {}) {
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, mins: 0, secs: 0 });
   const { data: siteData } = useSiteContent();
   const data = content || siteData;
   const hero = data?.hero || {};
   const eventConfig = data?.eventConfig || {};
   const prefersReducedMotion = useReducedMotion();
+  const presentationMarqueeDuration = clampPresentationMarqueeDuration(
+    hero?.presentation_marquee_duration_seconds
+  );
+  const sponsorMarqueeItems = useMemo(() => {
+    const rows = Array.isArray(data?.sponsors) ? data.sponsors : [];
+    return rows
+      .map((item, index) => ({ ...item, __index: index }))
+      .filter((item) => item.active !== false && (item.logo_url || item.name))
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+  }, [data?.sponsors]);
+  const sponsorMarqueeLoop = useMemo(
+    () => (sponsorMarqueeItems.length ? [...sponsorMarqueeItems, ...sponsorMarqueeItems] : []),
+    [sponsorMarqueeItems]
+  );
   const handleJumpToAgenda = useCallback((event) => {
     event.preventDefault();
 
@@ -74,6 +119,8 @@ export default function Hero({ content, editor } = {}) {
   });
 
   useEffect(() => {
+    if (!showCountdown) return undefined;
+
     const eventDate = resolveCountdownDate(eventConfig, hero);
 
     const tick = () => {
@@ -96,7 +143,7 @@ export default function Hero({ content, editor } = {}) {
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [eventConfig.event_date, eventConfig.event_time, hero.countdown_target]);
+  }, [eventConfig.event_date, eventConfig.event_time, hero.countdown_target, showCountdown]);
 
   const countdownItems = [
     { label: 'Days', value: countdown.days },
@@ -158,7 +205,16 @@ export default function Hero({ content, editor } = {}) {
               : hero.title_line_1 || 'CYBER'}
           </motion.span>
           <motion.span
-            className="block text-6xl sm:text-8xl md:text-9xl glow-cyan text-primary"
+            className={`block text-6xl sm:text-8xl md:text-9xl ${showSponsorMarquee ? '' : 'glow-cyan text-primary'}`.trim()}
+            style={
+              showSponsorMarquee
+                ? {
+                    color: '#00E5FF',
+                    textShadow:
+                      '0 0 17px rgba(0,229,255,0.44), 0 0 34px rgba(0,229,255,0.18)',
+                  }
+                : undefined
+            }
             initial={prefersReducedMotion ? false : { opacity: 0, y: 30 }}
             animate={prefersReducedMotion ? {} : { opacity: 1, y: 0 }}
             transition={prefersReducedMotion ? { duration: 0 } : { delay: 0.7, duration: 1 }}
@@ -174,70 +230,159 @@ export default function Hero({ content, editor } = {}) {
           </motion.span>
         </h1>
 
-        <motion.p
-          initial={prefersReducedMotion ? false : { opacity: 0 }}
-          animate={prefersReducedMotion ? {} : { opacity: 1 }}
-          transition={prefersReducedMotion ? { duration: 0 } : { delay: 1.1, duration: 0.8 }}
-          className="font-mono text-sm md:text-base text-muted-foreground max-w-xl mx-auto mt-6 leading-relaxed"
-        >
-          {editor?.text
-            ? editor.text({
-                as: 'span',
-                value: hero.subtitle,
-                fallback:
-                  'Cybersecurity Panel & Networking Event - Where collective defense meets collective intelligence.',
-                onChange: (value) => editor.setField('hero', 'subtitle', value),
-                multiline: true,
-                ariaLabel: 'Hero subtitle',
-              })
-            : hero.subtitle ||
-              'Cybersecurity Panel & Networking Event - Where collective defense meets collective intelligence.'}
-        </motion.p>
-
-        <motion.div
-          initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
-          animate={prefersReducedMotion ? {} : { opacity: 1, y: 0 }}
-          transition={prefersReducedMotion ? { duration: 0 } : { delay: 1.4, duration: 0.8 }}
-          className="flex justify-center gap-6 md:gap-10 mt-12"
-          aria-labelledby="countdown-heading"
-        >
-          <p id="countdown-heading" className="sr-only">
-            Countdown to the event on {countdownTargetLabel}
-          </p>
-          <dl className="flex justify-center gap-6 md:gap-10">
-            {countdownItems.map((item) => (
-              <div key={item.label} className="text-center">
-                <dd className="font-heading text-3xl md:text-5xl font-bold text-foreground tabular-nums">
-                  {String(item.value).padStart(2, '0')}
-                </dd>
-                <dt className="font-mono text-xs text-primary/85 tracking-widest mt-1 uppercase">
-                  {item.label}
-                </dt>
-              </div>
-            ))}
-          </dl>
-        </motion.div>
-
-        <motion.div
-          initial={prefersReducedMotion ? false : { opacity: 0 }}
-          animate={prefersReducedMotion ? {} : { opacity: 1 }}
-          transition={prefersReducedMotion ? { duration: 0 } : { delay: 1.8, duration: 0.8 }}
-          className="mt-14"
-        >
-          <a
-            href="#register"
-            className="inline-flex items-center gap-2 rounded-md border border-primary/60 bg-background/35 px-8 py-3 text-primary font-mono text-sm tracking-widest uppercase transition-all duration-300 hover:border-primary/85 hover:bg-primary/12"
+        {showSubtitle ? (
+          <motion.p
+            initial={prefersReducedMotion ? false : { opacity: 0 }}
+            animate={prefersReducedMotion ? {} : { opacity: 1 }}
+            transition={prefersReducedMotion ? { duration: 0 } : { delay: 1.1, duration: 0.8 }}
+            className="font-mono text-sm md:text-base text-muted-foreground max-w-xl mx-auto mt-6 leading-relaxed"
           >
             {editor?.text
               ? editor.text({
-                  value: hero.cta_label,
-                  fallback: 'Join the Swarm',
-                  onChange: (value) => editor.setField('hero', 'cta_label', value),
-                  ariaLabel: 'Hero CTA label',
+                  as: 'span',
+                  value: hero.subtitle,
+                  fallback:
+                    'Cybersecurity Panel & Networking Event - Where collective defense meets collective intelligence.',
+                  onChange: (value) => editor.setField('hero', 'subtitle', value),
+                  multiline: true,
+                  ariaLabel: 'Hero subtitle',
                 })
-              : hero.cta_label || 'Join the Swarm'}
-          </a>
-        </motion.div>
+              : hero.subtitle ||
+                'Cybersecurity Panel & Networking Event - Where collective defense meets collective intelligence.'}
+          </motion.p>
+        ) : null}
+
+        {showSponsorMarquee && sponsorMarqueeLoop.length ? (
+          <motion.div
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+            animate={prefersReducedMotion ? {} : { opacity: 1, y: 0 }}
+            transition={prefersReducedMotion ? { duration: 0 } : { delay: 1.1, duration: 0.8 }}
+            className="mx-auto mt-10 w-full max-w-5xl"
+            aria-label="Featured sponsor logos"
+          >
+            <div
+              className="relative overflow-hidden rounded-full border border-primary/30 bg-[rgba(237,239,242,0.93)] shadow-[0_0_32px_hsl(var(--primary)/0.1)]"
+              style={{ height: `${PRESENTATION_MARQUEE_BAND_HEIGHT_PX}px` }}
+            >
+              <div
+                className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[rgba(237,239,242,0.93)] to-transparent"
+                aria-hidden="true"
+              />
+              <div
+                className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[rgba(237,239,242,0.93)] to-transparent"
+                aria-hidden="true"
+              />
+              <motion.ul
+                className="flex h-full w-max items-center gap-14 px-8"
+                animate={prefersReducedMotion ? {} : { x: ['0%', '-50%'] }}
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0 }
+                    : { duration: presentationMarqueeDuration, ease: 'linear', repeat: Infinity }
+                }
+              >
+                {sponsorMarqueeLoop.map((sponsor, index) => {
+                  const name = String(sponsor?.name || 'Sponsor').trim() || 'Sponsor';
+                  const logoUrl = String(sponsor?.logo_url || '').trim();
+                  const presentationLogoScale = clampPresentationMarqueeLogoScale(
+                    sponsor?.presentation_logo_scale
+                  );
+                  const logoHeightPx = Math.round(
+                    (PRESENTATION_MARQUEE_BASE_LOGO_HEIGHT_PX * presentationLogoScale) / 100
+                  );
+                  const logoMaxWidthPx = Math.round(
+                    (PRESENTATION_MARQUEE_BASE_LOGO_MAX_WIDTH_PX * presentationLogoScale) / 100
+                  );
+                  const fallbackFontSizePx = Math.round(
+                    (PRESENTATION_MARQUEE_BASE_FALLBACK_FONT_SIZE_PX * presentationLogoScale) / 100
+                  );
+                  const key = `${sponsor?.id || sponsor?.__index || name}-${index}`;
+
+                  return (
+                    <li key={key} className="h-full shrink-0 overflow-hidden">
+                      <div className="flex h-full items-center">
+                        {logoUrl ? (
+                          <img
+                            src={logoUrl}
+                            alt={`${name} logo`}
+                            className="block w-auto max-w-none object-contain opacity-95"
+                            style={{
+                              height: `${logoHeightPx}px`,
+                              maxWidth: `${logoMaxWidthPx}px`,
+                              filter:
+                                'drop-shadow(0 0 6px rgba(0,0,0,0.2)) drop-shadow(0 0 1px rgba(0,0,0,0.25))',
+                            }}
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span
+                            className="font-heading uppercase tracking-[0.16em] text-slate-900/85"
+                            style={{
+                              fontSize: `${fallbackFontSizePx}px`,
+                              lineHeight: 1,
+                              textShadow: '0 0 6px rgba(0,0,0,0.2)',
+                            }}
+                          >
+                            {name}
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </motion.ul>
+            </div>
+          </motion.div>
+        ) : null}
+
+        {showCountdown ? (
+          <motion.div
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
+            animate={prefersReducedMotion ? {} : { opacity: 1, y: 0 }}
+            transition={prefersReducedMotion ? { duration: 0 } : { delay: 1.4, duration: 0.8 }}
+            className="flex justify-center gap-6 md:gap-10 mt-12"
+            aria-labelledby="countdown-heading"
+          >
+            <p id="countdown-heading" className="sr-only">
+              Countdown to the event on {countdownTargetLabel}
+            </p>
+            <dl className="flex justify-center gap-6 md:gap-10">
+              {countdownItems.map((item) => (
+                <div key={item.label} className="text-center">
+                  <dd className="font-heading text-3xl md:text-5xl font-bold text-foreground tabular-nums">
+                    {String(item.value).padStart(2, '0')}
+                  </dd>
+                  <dt className="font-mono text-xs text-primary/85 tracking-widest mt-1 uppercase">
+                    {item.label}
+                  </dt>
+                </div>
+              ))}
+            </dl>
+          </motion.div>
+        ) : null}
+
+        {showCta ? (
+          <motion.div
+            initial={prefersReducedMotion ? false : { opacity: 0 }}
+            animate={prefersReducedMotion ? {} : { opacity: 1 }}
+            transition={prefersReducedMotion ? { duration: 0 } : { delay: 1.8, duration: 0.8 }}
+            className="mt-14"
+          >
+            <a
+              href="#register"
+              className="inline-flex items-center gap-2 rounded-md border border-primary/60 bg-background/35 px-8 py-3 text-primary font-mono text-sm tracking-widest uppercase transition-all duration-300 hover:border-primary/85 hover:bg-primary/12"
+            >
+              {editor?.text
+                ? editor.text({
+                    value: hero.cta_label,
+                    fallback: 'Join the Swarm',
+                    onChange: (value) => editor.setField('hero', 'cta_label', value),
+                    ariaLabel: 'Hero CTA label',
+                  })
+                : hero.cta_label || 'Join the Swarm'}
+            </a>
+          </motion.div>
+        ) : null}
       </motion.div>
 
       <motion.a

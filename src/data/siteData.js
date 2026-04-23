@@ -30,6 +30,7 @@ export const DEFAULT_HERO_CONFIG = {
     'Cybersecurity Panel & Networking Event - Where collective defense meets collective intelligence.',
   countdown_target: '2026-04-15T09:00:00',
   cta_label: 'Join the Swarm',
+  presentation_marquee_duration_seconds: 85,
 };
 
 export const DEFAULT_EVENT_CONFIG = {
@@ -267,6 +268,12 @@ const normalizeSponsorLogoScale = (value) => {
   return Math.min(400, Math.max(60, Math.round(scale)));
 };
 
+const normalizePresentationLogoScale = (value) => {
+  const scale = Number(value);
+  if (!Number.isFinite(scale)) return 100;
+  return Math.min(240, Math.max(50, Math.round(scale)));
+};
+
 const normalizeSponsorLogoOffset = (value) => {
   const offset = Number(value);
   if (!Number.isFinite(offset)) return 0;
@@ -313,6 +320,7 @@ const normalizeSponsors = (value) => {
         logo_background: 'transparent',
         logo_background_color: '#ffffff',
         logo_scale: 110,
+        presentation_logo_scale: 100,
         logo_offset_x: 0,
         logo_offset_y: 0,
         order: index + 1,
@@ -339,6 +347,9 @@ const normalizeSponsors = (value) => {
         row.logo_background_color ?? row.logoBackgroundColor
       ),
       logo_scale: normalizeSponsorLogoScale(row.logo_scale),
+      presentation_logo_scale: normalizePresentationLogoScale(
+        row.presentation_logo_scale ?? row.presentationLogoScale
+      ),
       logo_offset_x: normalizeSponsorLogoOffset(row.logo_offset_x ?? row.logoOffsetX),
       logo_offset_y: normalizeSponsorLogoOffset(row.logo_offset_y ?? row.logoOffsetY),
       order: Number.isFinite(row.order) ? row.order : index + 1,

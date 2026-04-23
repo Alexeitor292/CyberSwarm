@@ -8,10 +8,17 @@ import SponsorLogoViewport, {
   clampSponsorLogoScale,
 } from '@/components/cyberswarm/SponsorLogoViewport';
 import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
+  Carousel as CarouselPrimitive,
+  CarouselContent as CarouselContentPrimitive,
+  CarouselItem as CarouselItemPrimitive,
 } from '@/components/ui/carousel';
+
+const Carousel =
+  /** @type {import('react').ComponentType<any>} */ (CarouselPrimitive);
+const CarouselContent =
+  /** @type {import('react').ComponentType<any>} */ (CarouselContentPrimitive);
+const CarouselItem =
+  /** @type {import('react').ComponentType<any>} */ (CarouselItemPrimitive);
 
 /**
  * @typedef {Object} Sponsor
@@ -43,6 +50,16 @@ import {
  * @property {string} [vip_group_label]
  * @property {string} [vip_group_subtitle]
  * @property {boolean} [hide_vip_group_subtitle]
+ */
+
+/**
+ * @typedef {Object} CarouselApi
+ * @property {() => number} selectedScrollSnap
+ * @property {(index: number, jump?: boolean) => void} scrollTo
+ * @property {() => boolean} canScrollNext
+ * @property {() => void} scrollNext
+ * @property {() => boolean} canScrollPrev
+ * @property {() => void} scrollPrev
  */
 
 /**
@@ -118,7 +135,9 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
     shouldUseRegularSponsorBand && !prefersReducedMotion && !editor?.text;
   const regularCarouselAutoAdvanceMs = 5200;
   const [regularCarouselAutoCycleKey, setRegularCarouselAutoCycleKey] = React.useState(0);
-  const [regularCarouselApi, setRegularCarouselApi] = React.useState(null);
+  const [regularCarouselApi, setRegularCarouselApi] = React.useState(
+    /** @type {CarouselApi | null} */ (null)
+  );
   const restartRegularCarouselAutoTimer = React.useCallback(() => {
     setRegularCarouselAutoCycleKey((value) => value + 1);
   }, []);

@@ -282,6 +282,18 @@ const normalizeSponsorLogoBackgroundColor = (value) => {
   return sponsorLogoBackgroundDefaultColor;
 };
 
+const clampPresentationLogoScale = (value) => {
+  const scale = Number(value);
+  if (!Number.isFinite(scale)) return 100;
+  return Math.min(240, Math.max(50, Math.round(scale)));
+};
+
+const clampPresentationMarqueeDuration = (value) => {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds)) return 85;
+  return Math.min(240, Math.max(20, Math.round(seconds)));
+};
+
 const collectCustomColorFrameDowngrades = (beforeContent, afterContent) => {
   const beforeSponsors = Array.isArray(beforeContent?.sponsors) ? beforeContent.sponsors : [];
   const afterSponsors = Array.isArray(afterContent?.sponsors) ? afterContent.sponsors : [];
@@ -527,6 +539,7 @@ export default function AdminUI() {
   const [sponsorMailboxView, setSponsorMailboxView] = useState('cards');
   const [calendarEventScope, setCalendarEventScope] = useState('mine');
   const [selectedSponsorIndex, setSelectedSponsorIndex] = useState(0);
+  const [selectedPresentationSponsorIndex, setSelectedPresentationSponsorIndex] = useState(0);
   const [selectedSponsorLeadIndex, setSelectedSponsorLeadIndex] = useState(0);
   const [sponsorLogoUploading, setSponsorLogoUploading] = useState(false);
   const [pendingSponsorLeadDeleteId, setPendingSponsorLeadDeleteId] = useState('');
@@ -764,6 +777,27 @@ export default function AdminUI() {
         logo_scale: nextScale,
         logo_offset_x: nextOffsetX,
         logo_offset_y: nextOffsetY,
+      };
+
+      return { ...prev, sponsors };
+    });
+  };
+
+  const setPresentationLogoScale = (index, value) => {
+    if (!Number.isInteger(index) || index < 0) return;
+
+    updateDraft((prev) => {
+      const sponsors = Array.isArray(prev.sponsors) ? [...prev.sponsors] : [];
+      const current = sponsors[index];
+      if (!current) return prev;
+
+      const nextScale = clampPresentationLogoScale(value);
+      const currentScale = clampPresentationLogoScale(current.presentation_logo_scale);
+      if (nextScale === currentScale) return prev;
+
+      sponsors[index] = {
+        ...current,
+        presentation_logo_scale: nextScale,
       };
 
       return { ...prev, sponsors };
@@ -1217,6 +1251,25 @@ export default function AdminUI() {
   const googleWorkspaceScopeCount = Number(googleWorkspaceStatus.scopeCount || 0);
 
   const activeSponsorCount = draft?.sponsors?.filter((item) => item.active !== false && item.name)?.length || 0;
+  const presentationSponsorEntries = useMemo(
+    () =>
+      (Array.isArray(draft?.sponsors) ? draft.sponsors : [])
+        .map((sponsor, index) => ({ sponsor, index }))
+        .filter(({ sponsor }) => sponsor.active !== false && (sponsor.logo_url || sponsor.name))
+        .sort((left, right) => (left.sponsor.order || 0) - (right.sponsor.order || 0)),
+    [draft?.sponsors]
+  );
+
+  useEffect(() => {
+    if (!presentationSponsorEntries.length) {
+      if (selectedPresentationSponsorIndex !== 0) setSelectedPresentationSponsorIndex(0);
+      return;
+    }
+    if (selectedPresentationSponsorIndex > presentationSponsorEntries.length - 1) {
+      setSelectedPresentationSponsorIndex(presentationSponsorEntries.length - 1);
+    }
+  }, [presentationSponsorEntries, selectedPresentationSponsorIndex]);
+
   const mailingContactDirectory = useMemo(() => {
     const contacts = [];
 
@@ -1646,7 +1699,7 @@ export default function AdminUI() {
   );
 
   useEffect(() => {
-    const knownPages = new Set(['overview', 'site', 'event', 'calendar', 'sponsors', 'attendees', 'messaging', 'mailing', 'integrations', 'json']);
+    const knownPages = new Set(['overview', 'site', 'presentation', 'event', 'calendar', 'sponsors', 'attendees', 'messaging', 'mailing', 'integrations', 'json']);
     if (currentPageId && !knownPages.has(currentPageId)) {
       navigate('/admin/overview', { replace: true });
     }
@@ -1772,6 +1825,7 @@ export default function AdminUI() {
       logo_background: 'transparent',
       logo_background_color: sponsorLogoBackgroundDefaultColor,
       logo_scale: 110,
+      presentation_logo_scale: 100,
       logo_offset_x: 0,
       logo_offset_y: 0,
       order: (Array.isArray(draft?.sponsors) ? draft.sponsors.length : 0) + 1,
@@ -1923,6 +1977,13 @@ export default function AdminUI() {
         { id: 'overview', title: 'Overview', description: 'Readiness, feed health, and latest event activity.', icon: LayoutDashboard },
         { id: 'site', title: 'Page Builder', description: 'Visual homepage, event, map, agenda, and content editor.', icon: Sparkles },
         {
+          id: 'presentation',
+          title: 'Presentation',
+          description: 'Projector slide intro editor with per-logo marquee sizing.',
+          icon: Eye,
+          badge: presentationSponsorEntries.length ? String(presentationSponsorEntries.length) : '',
+        },
+        {
           id: 'sponsors',
           title: 'Sponsors',
           description: 'Sponsor spotlight cards and incoming sponsor inquiries.',
@@ -1984,6 +2045,7 @@ export default function AdminUI() {
       newSponsorLeadCount,
       teamInboxUrl,
       isGoogleWidgetEnabled,
+      presentationSponsorEntries.length,
     ]
   );
 
@@ -2613,6 +2675,7 @@ export default function AdminUI() {
                 logo_background: 'transparent',
                 logo_background_color: sponsorLogoBackgroundDefaultColor,
                 logo_scale: 110,
+                presentation_logo_scale: 100,
                 logo_offset_x: 0,
                 logo_offset_y: 0,
                 order: (prev.sponsors || []).length + 1,
@@ -3017,6 +3080,272 @@ export default function AdminUI() {
     );
   };
 
+  const renderPresentationPage = () => {
+    const selectedPresentationEntry =
+      presentationSponsorEntries[selectedPresentationSponsorIndex] || null;
+    const selectedPresentationSponsor = selectedPresentationEntry?.sponsor || null;
+    const selectedPresentationSponsorDataIndex = selectedPresentationEntry?.index ?? -1;
+    const selectedPresentationLogoScale = clampPresentationLogoScale(
+      selectedPresentationSponsor?.presentation_logo_scale
+    );
+    const selectedPresentationLogoHeight = Math.round((96 * selectedPresentationLogoScale) / 100);
+    const selectedPresentationLogoMaxWidth = Math.round((420 * selectedPresentationLogoScale) / 100);
+    const presentationMarqueeDurationSeconds = clampPresentationMarqueeDuration(
+      draft?.hero?.presentation_marquee_duration_seconds
+    );
+
+    const updateSelectedPresentationScale = (value) => {
+      if (selectedPresentationSponsorDataIndex < 0) return;
+      setPresentationLogoScale(selectedPresentationSponsorDataIndex, value);
+    };
+    const updatePresentationMarqueeDuration = (value) => {
+      setField(
+        'hero',
+        'presentation_marquee_duration_seconds',
+        clampPresentationMarqueeDuration(value)
+      );
+    };
+
+    return (
+      <div className="space-y-6">
+        <Section
+          eyebrow="Presentation Builder"
+          title="Projector Intro Canvas"
+          description="Edit the /presentation intro slide with click-to-edit text and per-logo marquee sizing."
+        >
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.82fr)]">
+            <div className="min-w-0 space-y-4">
+              <div className="overflow-hidden rounded-[1.5rem] border border-primary/20 bg-background shadow-[0_24px_80px_hsl(var(--primary)/0.08)]">
+                <div className="flex items-center justify-between border-b border-primary/10 bg-background/45 px-4 py-3">
+                  <div className="flex gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-accent/80" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-primary/80" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
+                  </div>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground/70">
+                    Live Presentation Intro - Click Text To Edit
+                  </p>
+                </div>
+
+                <div className="h-[760px] overflow-auto bg-background">
+                  <div className="relative min-h-screen w-full overflow-x-hidden bg-background text-foreground">
+                    <ParticleField preview reactToMouse={false} />
+                    <HUDOverlay preview />
+                    <Hero
+                      content={draft}
+                      editor={inlineEditor}
+                      showCountdown={false}
+                      showSubtitle={false}
+                      showCta={false}
+                      showSponsorMarquee
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className={itemCardClasses}>
+                <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-primary/75">
+                  Presentation Notes
+                </p>
+                <p className="font-mono text-xs leading-6 text-muted-foreground/75">
+                  This tab controls the /presentation intro slide: title copy and sponsor marquee sizing.
+                  The Sponsors page still controls sponsor card framing for the public homepage.
+                </p>
+              </div>
+            </div>
+
+            <div className={`${itemCardClasses} self-start`}>
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl border border-primary/20 bg-primary/10 p-3 text-primary">
+                  <Eye className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary/75">
+                    Slide Tools
+                  </p>
+                  <h3 className="font-heading text-2xl text-foreground">Intro & Marquee</h3>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <input
+                  className={fieldClasses}
+                  value={draft.hero?.pretitle || ''}
+                  onChange={(event) => setField('hero', 'pretitle', event.target.value)}
+                  placeholder="Pretitle"
+                />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <input
+                    className={fieldClasses}
+                    value={draft.hero?.title_line_1 || ''}
+                    onChange={(event) => setField('hero', 'title_line_1', event.target.value)}
+                    placeholder="Title line 1"
+                  />
+                  <input
+                    className={fieldClasses}
+                    value={draft.hero?.title_line_2 || ''}
+                    onChange={(event) => setField('hero', 'title_line_2', event.target.value)}
+                    placeholder="Title line 2"
+                  />
+                </div>
+                <label className="block space-y-1">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                    Marquee Loop Duration ({presentationMarqueeDurationSeconds}s)
+                  </span>
+                  <input
+                    type="range"
+                    min="20"
+                    max="240"
+                    step="1"
+                    className="w-full accent-primary"
+                    value={presentationMarqueeDurationSeconds}
+                    onChange={(event) =>
+                      updatePresentationMarqueeDuration(Number(event.target.value))
+                    }
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="number"
+                      min="20"
+                      max="240"
+                      className={`${fieldClasses} w-32`}
+                      value={presentationMarqueeDurationSeconds}
+                      onChange={(event) =>
+                        updatePresentationMarqueeDuration(Number(event.target.value))
+                      }
+                    />
+                    <span className="font-mono text-[11px] text-muted-foreground/75">
+                      Lower is faster.
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="rounded-xl border border-primary/15 bg-background/35 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                    Marquee Sponsors
+                  </p>
+                  <span className="rounded-full border border-primary/20 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.2em] text-primary/80">
+                    {presentationSponsorEntries.length}
+                  </span>
+                </div>
+
+                {presentationSponsorEntries.length ? (
+                  <>
+                    <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
+                      {presentationSponsorEntries.map(({ sponsor, index }, listIndex) => {
+                        const isActive = listIndex === selectedPresentationSponsorIndex;
+                        const scale = clampPresentationLogoScale(sponsor?.presentation_logo_scale);
+
+                        return (
+                          <button
+                            key={sponsor.id || `presentation-sponsor-${index}`}
+                            type="button"
+                            onClick={() => setSelectedPresentationSponsorIndex(listIndex)}
+                            className={`w-full rounded-xl border px-3 py-2.5 text-left transition ${
+                              isActive
+                                ? 'border-primary/45 bg-primary/12 text-foreground'
+                                : 'border-primary/15 bg-background/35 text-muted-foreground hover:border-primary/30 hover:bg-background/55 hover:text-foreground'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="font-heading text-base text-foreground">
+                                {sponsor.name || 'Unnamed sponsor'}
+                              </p>
+                              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary/80">
+                                {scale}%
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {selectedPresentationSponsor ? (
+                      <div className="mt-4 space-y-3">
+                        <div className="h-32 overflow-hidden rounded-full border border-primary/30 bg-[rgba(237,239,242,0.93)] px-4">
+                          <div className="flex h-full items-center justify-center">
+                            {selectedPresentationSponsor.logo_url ? (
+                              <img
+                                src={selectedPresentationSponsor.logo_url}
+                                alt={`${selectedPresentationSponsor.name || 'Sponsor'} logo preview`}
+                                className="w-auto object-contain opacity-95"
+                                style={{
+                                  height: `${selectedPresentationLogoHeight}px`,
+                                  maxWidth: `${selectedPresentationLogoMaxWidth}px`,
+                                  filter:
+                                    'drop-shadow(0 0 6px rgba(0,0,0,0.2)) drop-shadow(0 0 1px rgba(0,0,0,0.25))',
+                                }}
+                              />
+                            ) : (
+                              <p
+                                className="font-heading uppercase tracking-[0.16em] text-slate-900/85"
+                                style={{
+                                  fontSize: `${Math.round((36 * selectedPresentationLogoScale) / 100)}px`,
+                                  lineHeight: 1,
+                                  textShadow: '0 0 6px rgba(0,0,0,0.2)',
+                                }}
+                              >
+                                {selectedPresentationSponsor.name || 'Sponsor'}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <label className="block space-y-1">
+                          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                            Presentation Logo Size ({selectedPresentationLogoScale}%)
+                          </span>
+                          <input
+                            type="range"
+                            min="50"
+                            max="240"
+                            step="1"
+                            className="w-full accent-primary"
+                            value={selectedPresentationLogoScale}
+                            onChange={(event) =>
+                              updateSelectedPresentationScale(Number(event.target.value))
+                            }
+                          />
+                        </label>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="number"
+                            min="50"
+                            max="240"
+                            className={`${fieldClasses} w-32`}
+                            value={selectedPresentationLogoScale}
+                            onChange={(event) =>
+                              updateSelectedPresentationScale(Number(event.target.value))
+                            }
+                          />
+                          <button
+                            type="button"
+                            className={outlineButtonClasses}
+                            onClick={() => updateSelectedPresentationScale(100)}
+                          >
+                            Reset To 100%
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <EmptyState
+                    title="No active marquee logos"
+                    description="Publish sponsor cards with a name or logo URL to manage their presentation marquee size."
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        </Section>
+      </div>
+    );
+  };
+
   const renderEventPage = () => {
     const eventBlocks = [
       { id: 'details', title: 'Event Details', description: 'Date, time, venue, and address.', icon: CalendarDays },
@@ -3309,6 +3638,7 @@ export default function AdminUI() {
                             logo_background: 'transparent',
                             logo_background_color: sponsorLogoBackgroundDefaultColor,
                             logo_scale: 110,
+                            presentation_logo_scale: 100,
                             logo_offset_x: 0,
                             logo_offset_y: 0,
                             order: (prev.sponsors || []).length + 1,
@@ -5002,6 +5332,8 @@ export default function AdminUI() {
     switch (currentPageId) {
       case 'site':
         return renderSitePage();
+      case 'presentation':
+        return renderPresentationPage();
       case 'calendar':
         return renderCalendarPage();
       case 'sponsors':

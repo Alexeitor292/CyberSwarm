@@ -2,9 +2,9 @@ import React, { useRef, useEffect, useCallback } from 'react';
 import { useReducedMotion } from 'framer-motion';
 
 /**
- * @param {{ preview?: boolean | undefined }} props
+ * @param {{ preview?: boolean | undefined, animate?: boolean | undefined, reactToMouse?: boolean | undefined }} props
  */
-export default function ParticleField({ preview = false } = {}) {
+export default function ParticleField({ preview = false, animate = true, reactToMouse = true } = {}) {
   const canvasRef = useRef(null);
   const mouseRef = useRef({ x: 0, y: 0 });
   const particlesRef = useRef([]);
@@ -28,7 +28,7 @@ export default function ParticleField({ preview = false } = {}) {
   }, []);
 
   useEffect(() => {
-    if (prefersReducedMotion) return undefined;
+    if (prefersReducedMotion || !animate) return undefined;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -48,7 +48,9 @@ export default function ParticleField({ preview = false } = {}) {
 
     resize();
     window.addEventListener('resize', resize);
-    window.addEventListener('mousemove', onMouseMove);
+    if (reactToMouse) {
+      window.addEventListener('mousemove', onMouseMove);
+    }
 
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -56,14 +58,18 @@ export default function ParticleField({ preview = false } = {}) {
       const my = mouseRef.current.y;
 
       particlesRef.current.forEach((p, i) => {
-        // Mouse attraction
-        const dx = mx - p.x;
-        const dy = my - p.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 200 && dist > 0) {
-          const force = (200 - dist) / 200 * 0.02;
-          p.vx += dx / dist * force;
-          p.vy += dy / dist * force;
+        let dist = Infinity;
+
+        if (reactToMouse) {
+          // Mouse attraction
+          const dx = mx - p.x;
+          const dy = my - p.y;
+          dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 200 && dist > 0) {
+            const force = (200 - dist) / 200 * 0.02;
+            p.vx += dx / dist * force;
+            p.vy += dy / dist * force;
+          }
         }
 
         // Damping
@@ -109,14 +115,16 @@ export default function ParticleField({ preview = false } = {}) {
 
     return () => {
       window.removeEventListener('resize', resize);
-      window.removeEventListener('mousemove', onMouseMove);
+      if (reactToMouse) {
+        window.removeEventListener('mousemove', onMouseMove);
+      }
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [initParticles, prefersReducedMotion]);
+  }, [animate, initParticles, prefersReducedMotion, reactToMouse]);
 
   const positionClass = preview ? 'absolute' : 'fixed';
 
-  if (prefersReducedMotion) {
+  if (prefersReducedMotion || !animate) {
     return (
       <div
         className={`${positionClass} inset-0 z-0 pointer-events-none`}
