@@ -37,7 +37,7 @@ export const DEFAULT_EVENT_CONFIG = {
   id: 'event-config-1',
   created_date: '2026-02-20T09:00:00.000Z',
   event_date: '2026-04-15',
-  event_time: '9:00 AM - 5:00 PM PST',
+  event_time: '05:00 PM - 08:00 PM PST',
   venue_name: 'The WELL',
   venue_name_line_1: 'The WELL',
   venue_name_line_2: 'Sacramento State University',
@@ -145,65 +145,151 @@ export const DEFAULT_AGENDA_ITEMS = [
   {
     id: 'agenda-1',
     order: 1,
-    title: 'Opening Keynote: State of Modern Threat Intelligence',
+    title: 'Registration and Networking',
     description:
-      'A tactical briefing on current ransomware and identity attack trends affecting higher education and enterprises.',
-    speaker: 'Dr. Maya Patel',
-    company: 'Sac State',
-    start_time: '09:00 AM',
-    end_time: '09:45 AM',
-    session_type: 'keynote',
+      'Attendees arrive, complete check-in, and engage in informal networking with panelists, sponsors, and fellow participants.',
+    speaker: '',
+    company: '',
+    session_label: 'NETWORKING',
+    start_time: '05:00 PM',
+    end_time: '05:20 PM',
+    session_type: 'networking',
     active: true,
   },
   {
     id: 'agenda-2',
     order: 2,
-    title: 'Panel: Security Operations in the AI Era',
+    title: 'Opening Remarks',
     description:
-      'Leaders discuss detection engineering, automation, and how SOC teams are adapting with limited resources.',
-    speaker: 'Industry Panel',
-    company: 'Cisco, CrowdStrike, Splunk',
-    start_time: '10:00 AM',
-    end_time: '11:00 AM',
-    session_type: 'panel',
+      'Introduction to the scope and intent of the event, including the structure of cybersecurity as a multi-disciplinary field across organizations and technical domains.',
+    speaker: 'José Escoto, Zahra Aivazpour, Juan Campos, Kevin Bali',
+    company: 'CyberSwarm Organizers',
+    session_label: 'OPENING',
+    start_time: '05:20 PM',
+    end_time: '05:30 PM',
+    session_type: 'keynote',
     active: true,
   },
   {
     id: 'agenda-3',
     order: 3,
-    title: 'Networking Break',
-    description: 'Meet recruiters, students, and practitioners in the expo hall.',
-    speaker: '',
-    company: '',
-    start_time: '11:00 AM',
-    end_time: '11:30 AM',
-    session_type: 'networking',
+    title: 'Panel 1: The Structure and Operation of the Cybersecurity Industry',
+    description:
+      'Examination of how cybersecurity functions across vendors, consultants, government agencies, and enterprise teams, including infrastructure and operational responsibilities.',
+    speaker: 'Panelists',
+    company: 'Industry Representatives',
+    session_label: 'PANEL 1',
+    start_time: '05:30 PM',
+    end_time: '06:15 PM',
+    session_type: 'panel',
+    panelists: [
+      {
+        id: 'panel-1-mock-1',
+        name: 'Maya Chen',
+        role: 'Director of Security Operations',
+        company: 'Northbridge Health',
+        bio: 'Leads enterprise detection and response strategy across cloud platforms, endpoint telemetry, and incident escalation workflows.',
+        active: true,
+      },
+      {
+        id: 'panel-1-mock-2',
+        name: 'Daniel Ortiz',
+        role: 'Principal Cybersecurity Consultant',
+        company: 'Sentinel Ridge Advisory',
+        bio: 'Advises public and private sector teams on security architecture, maturity roadmaps, and operational readiness.',
+        active: true,
+      },
+      {
+        id: 'panel-1-mock-3',
+        name: 'Avery Brooks',
+        role: 'Senior Information Security Analyst',
+        company: 'California Digital Services',
+        bio: 'Supports cross-agency risk management and helps translate policy, governance, and technical controls into day-to-day practice.',
+        active: true,
+      },
+    ],
     active: true,
   },
   {
     id: 'agenda-4',
     order: 4,
-    title: 'Hands-On Workshop: Incident Response Tabletop',
+    title: 'Interactive Session 1',
     description:
-      'An interactive response simulation focused on triage, containment, and executive communication.',
-    speaker: 'Alex Chen',
-    company: 'Palo Alto Networks',
-    start_time: '11:30 AM',
-    end_time: '01:00 PM',
+      'Interactive session reinforcing key concepts from Panel 1, focusing on organizational roles, responsibilities, and security implementation.',
+    speaker: '',
+    company: '',
+    session_label: 'INTERACTIVE',
+    start_time: '06:15 PM',
+    end_time: '06:25 PM',
     session_type: 'workshop',
     active: true,
   },
   {
     id: 'agenda-5',
     order: 5,
-    title: 'Closing Session and Career Q&A',
+    title: 'Panel 2: Entry into the Cybersecurity Field',
     description:
-      'Final takeaways, pathway advice for students, and open Q&A with hiring teams.',
-    speaker: 'Community Speakers',
-    company: 'Partner Organizations',
-    start_time: '01:15 PM',
-    end_time: '02:00 PM',
+      'Discussion of real-world career experiences, emphasizing networking, industry expectations, and the absence of a single defined path into cybersecurity.',
+    speaker: 'Panelists',
+    company: 'Industry Representatives',
+    session_label: 'PANEL 2',
+    start_time: '06:25 PM',
+    end_time: '07:05 PM',
     session_type: 'panel',
+    panelists: [
+      {
+        id: 'panel-2-mock-1',
+        name: 'Jordan Lee',
+        role: 'Security Engineer',
+        company: 'Cloud Harbor',
+        bio: 'Started in IT support before moving into cloud security engineering and now mentors students breaking into technical security roles.',
+        active: true,
+      },
+      {
+        id: 'panel-2-mock-2',
+        name: 'Priya Shah',
+        role: 'GRC Analyst',
+        company: 'Vertex Financial',
+        bio: 'Built a cybersecurity career through internships, compliance work, and cross-functional projects focused on governance and audit readiness.',
+        active: true,
+      },
+      {
+        id: 'panel-2-mock-3',
+        name: 'Marcus Rivera',
+        role: 'SOC Team Lead',
+        company: 'Redwood Managed Defense',
+        bio: 'Moved from help desk into a SOC role and now leads analysts while coaching early-career professionals on networking and growth.',
+        active: true,
+      },
+    ],
+    active: true,
+  },
+  {
+    id: 'agenda-6',
+    order: 6,
+    title: 'Interactive Session 2',
+    description:
+      'Interactive session exploring career realities, common misconceptions, and the role of networking and opportunity in cybersecurity.',
+    speaker: '',
+    company: '',
+    session_label: 'INTERACTIVE',
+    start_time: '07:05 PM',
+    end_time: '07:15 PM',
+    session_type: 'workshop',
+    active: true,
+  },
+  {
+    id: 'agenda-7',
+    order: 7,
+    title: 'Networking and Open Discussion',
+    description:
+      'Attendees engage directly with panelists and sponsors to build professional connections and continue discussions.',
+    speaker: '',
+    company: '',
+    session_label: 'NETWORKING',
+    start_time: '07:15 PM',
+    end_time: '08:00 PM',
+    session_type: 'networking',
     active: true,
   },
 ];
@@ -394,6 +480,25 @@ const normalizeOrganizations = (value) => {
   });
 };
 
+const normalizeAgendaPanelists = (value) => {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((row) => {
+      const source = row && typeof row === 'object' ? row : {};
+
+      return {
+        id: source.id || createId('panelist'),
+        name: String(source.name || source.speaker || '').trim(),
+        role: String(source.role || source.title || '').trim(),
+        company: String(source.company || source.organization || '').trim(),
+        bio: String(source.bio || source.description || '').trim(),
+        active: source.active ?? true,
+      };
+    })
+    .filter((row) => row.active !== false && (row.name || row.role || row.company || row.bio));
+};
+
 const normalizeAgendaItems = (value) => {
   if (!Array.isArray(value)) return DEFAULT_AGENDA_ITEMS.map((row) => ({ ...row }));
 
@@ -408,6 +513,7 @@ const normalizeAgendaItems = (value) => {
     start_time: row.start_time || '',
     end_time: row.end_time || '',
     session_type: row.session_type || 'panel',
+    panelists: normalizeAgendaPanelists(row.panelists),
     active: row.active ?? true,
   }));
 };

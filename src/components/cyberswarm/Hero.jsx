@@ -75,6 +75,7 @@ const resolveCountdownDate = (eventConfig, hero) => {
  *   showSubtitle?: boolean,
  *   showCta?: boolean,
  *   showSponsorMarquee?: boolean,
+ *   showAgendaJump?: boolean,
  * }} props
  */
 export default function Hero({
@@ -84,6 +85,7 @@ export default function Hero({
   showSubtitle = true,
   showCta = true,
   showSponsorMarquee = false,
+  showAgendaJump = true,
 } = {}) {
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, mins: 0, secs: 0 });
   const { data: siteData } = useSiteContent();
@@ -503,16 +505,18 @@ export default function Hero({
         ) : null}
       </motion.div>
 
-      <motion.a
-        href="#agenda"
-        onClick={handleJumpToAgenda}
-        className="absolute bottom-10 left-1/2 -translate-x-1/2 z-10"
-        animate={prefersReducedMotion ? {} : { y: [0, 8, 0] }}
-        transition={prefersReducedMotion ? { duration: 0 } : { duration: 2, repeat: Infinity }}
-        aria-label="Jump to the agenda section"
-      >
-        <ChevronDown className="w-5 h-5 text-primary/65" aria-hidden="true" />
-      </motion.a>
+      {showAgendaJump ? (
+        <motion.a
+          href="#agenda"
+          onClick={handleJumpToAgenda}
+          className="absolute bottom-10 left-1/2 -translate-x-1/2 z-10"
+          animate={prefersReducedMotion ? {} : { y: [0, 8, 0] }}
+          transition={prefersReducedMotion ? { duration: 0 } : { duration: 2, repeat: Infinity }}
+          aria-label="Jump to the agenda section"
+        >
+          <ChevronDown className="w-5 h-5 text-primary/65" aria-hidden="true" />
+        </motion.a>
+      ) : null}
     </section>
   );
 }

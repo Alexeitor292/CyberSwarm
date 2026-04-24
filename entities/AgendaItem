@@ -38,6 +38,10 @@
       "default": "panel",
       "description": "Type of session"
     },
+    "panelists": {
+      "type": "array",
+      "description": "Optional structured panelist details used by presentation slides"
+    },
     "session_label": {
       "type": "string",
       "description": "Optional custom session label displayed in the timeline card"
