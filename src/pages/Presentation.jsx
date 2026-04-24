@@ -33,6 +33,9 @@ const isInteractiveElement = (target) => {
 };
 
 const asText = (value) => String(value || '').trim();
+const asPresentationText = (value) => String(value || '');
+const normalizeArrowGlyphs = (value) =>
+  asPresentationText(value).replace(/-->/g, '→').replace(/->/g, '→');
 
 const buildSearchText = (item) =>
   [item?.session_label, item?.title, item?.description, item?.speaker, item?.company, item?.session_type]
@@ -82,7 +85,9 @@ const formatTimeRange = (item) =>
   [asText(item?.start_time), asText(item?.end_time)].filter(Boolean).join(' - ');
 
 const formatSpeakerLine = (item) =>
-  [asText(item?.speaker), asText(item?.company)].filter(Boolean).join(' | ');
+  [asPresentationText(item?.speaker), asPresentationText(item?.company)]
+    .filter((value) => String(value).trim().length > 0)
+    .join(' | ');
 
 const splitPanelField = (value) =>
   String(value || '')
@@ -95,10 +100,10 @@ const getPanelists = (item) => {
     ? item.panelists
         .map((panelist) => ({
           id: panelist?.id || '',
-          name: asText(panelist?.name),
-          role: asText(panelist?.role),
-          company: asText(panelist?.company),
-          bio: asText(panelist?.bio),
+          name: asPresentationText(panelist?.name),
+          role: asPresentationText(panelist?.role),
+          company: asPresentationText(panelist?.company),
+          bio: asPresentationText(panelist?.bio),
         }))
         .filter((panelist) => panelist.name || panelist.role || panelist.company || panelist.bio)
     : [];
@@ -136,10 +141,11 @@ const getInteractiveSteps = (item) => {
     ? item.presentation_steps
         .map((step) => ({
           id: step?.id || '',
-          title: asText(step?.title),
-          description: asText(step?.description),
+          title: asPresentationText(step?.title),
+          description: asPresentationText(step?.description),
+          image_url: asPresentationText(step?.image_url),
         }))
-        .filter((step) => step.title || step.description)
+        .filter((step) => step.title.trim() || step.description.trim() || step.image_url.trim())
     : [];
 
   if (structuredSteps.length) {
@@ -149,6 +155,7 @@ const getInteractiveSteps = (item) => {
         id: source.id || `interactive-step-${item?.id || 'slide'}-${index + 1}`,
         title: source.title || `Step ${index + 1}`,
         description: source.description || '',
+        image_url: source.image_url || '',
       };
     });
   }
@@ -157,6 +164,7 @@ const getInteractiveSteps = (item) => {
     id: `interactive-step-${item?.id || 'slide'}-${index + 1}`,
     title: `Step ${index + 1}`,
     description: '',
+    image_url: '',
   }));
 };
 
@@ -195,36 +203,36 @@ function PanelistCard({ panelist, fontScale = 120 }) {
       <div className="h-1 w-16 rounded-full bg-gradient-to-r from-primary to-primary/10" aria-hidden="true" />
 
       <h3
-        className="mt-6 font-heading leading-[1.02] text-foreground"
+        className="mt-6 whitespace-pre-wrap font-heading leading-[1.02] text-foreground"
         style={{ fontSize: `${nameFontSizeRem}rem` }}
       >
-        {panelist.name || 'Panelist'}
+        {normalizeArrowGlyphs(panelist.name || 'Panelist')}
       </h3>
 
       {panelist.role ? (
         <p
-          className="mt-4 font-heading leading-snug text-foreground/90"
+          className="mt-4 whitespace-pre-wrap font-heading leading-snug text-foreground/90"
           style={{ fontSize: `${roleFontSizeRem}rem` }}
         >
-          {panelist.role}
+          {normalizeArrowGlyphs(panelist.role)}
         </p>
       ) : null}
 
       {panelist.company ? (
         <p
-          className="mt-2 font-mono uppercase tracking-[0.2em] text-primary/82"
+          className="mt-2 whitespace-pre-wrap font-mono uppercase tracking-[0.2em] text-primary/82"
           style={{ fontSize: `${companyFontSizeRem}rem` }}
         >
-          {panelist.company}
+          {normalizeArrowGlyphs(panelist.company)}
         </p>
       ) : null}
 
       {panelist.bio ? (
         <p
-          className="mt-5 font-heading leading-7 text-foreground/78"
+          className="mt-5 whitespace-pre-wrap font-heading leading-7 text-foreground/78"
           style={{ fontSize: `${bioFontSizeRem}rem` }}
         >
-          {panelist.bio}
+          {normalizeArrowGlyphs(panelist.bio)}
         </p>
       ) : null}
     </article>
@@ -253,13 +261,13 @@ function IntroSlide({ data, editor }) {
 }
 
 function StageSlide({ item, editor, listKey = 'presentationSlides' }) {
-  const stageLabel = asText(item?.session_label);
-  const title = asText(item?.title);
-  const description = asText(item?.description);
+  const stageLabel = normalizeArrowGlyphs(item?.session_label);
+  const title = normalizeArrowGlyphs(item?.title);
+  const description = normalizeArrowGlyphs(item?.description);
   const hideSessionDescription = Boolean(item?.presentation_hide_description);
   const showSessionDescription = !hideSessionDescription;
   const timeRange = formatTimeRange(item);
-  const speakerLine = formatSpeakerLine(item);
+  const speakerLine = normalizeArrowGlyphs(formatSpeakerLine(item));
   const showPanelists = isPanelItem(item);
   const panelists = showPanelists ? getPanelists(item) : [];
   const showInteractiveSteps = !showPanelists && isInteractiveItem(item);
@@ -338,7 +346,7 @@ function StageSlide({ item, editor, listKey = 'presentationSlides' }) {
             {useSplitHeader ? (
               <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(24rem,0.9fr)] xl:items-start">
                 <div className="min-w-0">
-                  <h2 className="max-w-none font-heading text-[3rem] font-semibold leading-[0.94] text-foreground sm:text-[4rem] xl:text-[4.9rem]">
+                  <h2 className="max-w-none whitespace-pre-wrap font-heading text-[3rem] font-semibold leading-[0.94] text-foreground sm:text-[4rem] xl:text-[4.9rem]">
                     {canEditAgendaItem
                       ? editor.text({
                           as: 'span',
@@ -352,7 +360,7 @@ function StageSlide({ item, editor, listKey = 'presentationSlides' }) {
                 </div>
 
                 <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] px-6 py-5 shadow-[0_18px_60px_rgba(0,0,0,0.2)]">
-                  <p className="font-heading text-[1.18rem] leading-[1.48] text-foreground/86 xl:text-[1.36rem]">
+                  <p className="whitespace-pre-wrap font-heading text-[1.18rem] leading-[1.48] text-foreground/86 xl:text-[1.36rem]">
                     {canEditAgendaItem
                       ? editor.text({
                           as: 'span',
@@ -368,7 +376,7 @@ function StageSlide({ item, editor, listKey = 'presentationSlides' }) {
               </div>
             ) : (
               <>
-                <h2 className="mt-6 max-w-none font-heading text-[3rem] font-semibold leading-[0.94] text-foreground sm:text-[4.2rem] xl:text-[5rem]">
+                <h2 className="mt-6 max-w-none whitespace-pre-wrap font-heading text-[3rem] font-semibold leading-[0.94] text-foreground sm:text-[4.2rem] xl:text-[5rem]">
                   {canEditAgendaItem
                     ? editor.text({
                         as: 'span',
@@ -381,7 +389,7 @@ function StageSlide({ item, editor, listKey = 'presentationSlides' }) {
                 </h2>
 
                 {!showPanelists && (speakerLine || canEditAgendaItem) ? (
-                  <p className="mt-6 inline-flex max-w-fit items-center rounded-full border border-primary/20 bg-primary/8 px-5 py-2 font-heading text-lg text-primary/92 shadow-[0_0_30px_rgba(0,229,255,0.08)] sm:text-xl">
+                  <p className="mt-6 inline-flex max-w-fit items-center whitespace-pre-wrap rounded-full border border-primary/20 bg-primary/8 px-5 py-2 font-heading text-lg text-primary/92 shadow-[0_0_30px_rgba(0,229,255,0.08)] sm:text-xl">
                     {canEditAgendaItem ? (
                       <>
                         {editor.text({
@@ -401,14 +409,14 @@ function StageSlide({ item, editor, listKey = 'presentationSlides' }) {
                         })}
                       </>
                     ) : (
-                      speakerLine
-                    )}
+                        speakerLine
+                      )}
                   </p>
                 ) : null}
 
                 {showSessionDescription && (description || canEditAgendaItem) ? (
                   <div className="mt-8 max-w-[72rem] rounded-[1.6rem] border border-white/10 bg-white/[0.03] px-6 py-5 shadow-[0_18px_60px_rgba(0,0,0,0.2)]">
-                    <p className="font-heading text-[1.35rem] leading-[1.45] text-foreground/88 sm:text-[1.55rem] xl:text-[1.85rem]">
+                    <p className="whitespace-pre-wrap font-heading text-[1.35rem] leading-[1.45] text-foreground/88 sm:text-[1.55rem] xl:text-[1.85rem]">
                       {canEditAgendaItem
                         ? editor.text({
                             as: 'span',
@@ -450,12 +458,21 @@ function StageSlide({ item, editor, listKey = 'presentationSlides' }) {
                       <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary/82">
                         Step {String(index + 1).padStart(2, '0')}
                       </p>
-                      <h3 className="mt-5 font-heading text-[2rem] leading-[1.02] text-foreground sm:text-[2.2rem] xl:text-[2.55rem]">
-                        {step.title || `Step ${index + 1}`}
+                      {step.image_url ? (
+                        <div className="mt-4 h-40 overflow-hidden rounded-xl border border-white/12 bg-black/20">
+                          <img
+                            src={step.image_url}
+                            alt={`${step.title || `Step ${index + 1}`} illustration`}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                      ) : null}
+                      <h3 className="mt-5 whitespace-pre-wrap font-heading text-[2rem] leading-[1.02] text-foreground sm:text-[2.2rem] xl:text-[2.55rem]">
+                        {normalizeArrowGlyphs(step.title || `Step ${index + 1}`)}
                       </h3>
                       {step.description ? (
-                        <p className="mt-6 max-w-[36ch] font-heading text-[1.18rem] leading-[1.5] text-foreground/82">
-                          {step.description}
+                        <p className="mt-6 max-w-[36ch] whitespace-pre-wrap font-heading text-[1.18rem] leading-[1.5] text-foreground/82">
+                          {normalizeArrowGlyphs(step.description)}
                         </p>
                       ) : null}
                     </div>
@@ -550,9 +567,9 @@ export default function Presentation({
         presentation_steps:
           sessionType === 'kahoot' || sessionType === 'interactive'
             ? [
-                { id: `${slotId}-step-1`, title: 'Step 1', description: '', active: true },
-                { id: `${slotId}-step-2`, title: 'Step 2', description: '', active: true },
-                { id: `${slotId}-step-3`, title: 'Step 3', description: '', active: true },
+                { id: `${slotId}-step-1`, title: 'Step 1', description: '', image_url: '', active: true },
+                { id: `${slotId}-step-2`, title: 'Step 2', description: '', image_url: '', active: true },
+                { id: `${slotId}-step-3`, title: 'Step 3', description: '', image_url: '', active: true },
               ]
             : [],
       };

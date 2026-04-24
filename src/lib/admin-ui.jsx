@@ -2296,6 +2296,12 @@ export default function AdminUI() {
     text({ as: Component = 'span', value, fallback = '', onChange, className = '', multiline = false, ariaLabel }) {
       const currentValue = String(value || '');
       const displayValue = currentValue || fallback;
+      const normalizeEditableText = (rawText) =>
+        String(rawText || '')
+          .replace(/\u00a0/g, ' ')
+          .replace(/\r\n?/g, '\n')
+          .replace(/-->/g, '→')
+          .replace(/->/g, '→');
 
       return (
         <Component
@@ -2304,14 +2310,15 @@ export default function AdminUI() {
           role="textbox"
           aria-label={ariaLabel || 'Editable page text'}
           spellCheck
-          className={`${className} cursor-text rounded-sm outline-none transition focus:bg-primary/10 focus:ring-2 focus:ring-primary/55`}
+          className={`${className} ${multiline ? 'whitespace-pre-wrap' : ''} cursor-text rounded-sm outline-none transition focus:bg-primary/10 focus:ring-2 focus:ring-primary/55`}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
           }}
           onBlur={(event) => {
-            const nextValue = String(event.currentTarget.textContent || '').trim();
-            if (nextValue !== displayValue && typeof onChange === 'function') {
+            const nextValue = normalizeEditableText(event.currentTarget.textContent || '');
+            if (!currentValue && nextValue === fallback) return;
+            if (nextValue !== currentValue && typeof onChange === 'function') {
               onChange(nextValue);
             }
           }}
@@ -3277,6 +3284,7 @@ export default function AdminUI() {
           id: String(source.id || `presentation-step-${activePresentationSlideDataIndex}-${index + 1}`),
           title: String(source.title || `Step ${index + 1}`),
           description: String(source.description || ''),
+          image_url: String(source.image_url ?? source.imageUrl ?? ''),
           active: true,
         };
       });
@@ -3780,6 +3788,14 @@ export default function AdminUI() {
                         setPresentationStepField(stepIndex, 'description', event.target.value)
                       }
                       placeholder="Step details"
+                    />
+                    <input
+                      className={fieldClasses}
+                      value={step.image_url || ''}
+                      onChange={(event) =>
+                        setPresentationStepField(stepIndex, 'image_url', event.target.value)
+                      }
+                      placeholder="Step image URL"
                     />
                   </div>
                 ))}

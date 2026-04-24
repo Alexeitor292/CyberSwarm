@@ -353,6 +353,7 @@ const createDefaultPresentationSteps = (slotId) =>
     id: `${slotId}-step-${index + 1}`,
     title: `Step ${index + 1}`,
     description: '',
+    image_url: '',
     active: true,
   }));
 
@@ -603,12 +604,17 @@ const normalizePresentationSteps = (value) => {
 
       return {
         id: source.id || createId('presentation-step'),
-        title: String(source.title || source.label || '').trim(),
-        description: String(source.description || source.text || '').trim(),
+        title: String(source.title || source.label || ''),
+        description: String(source.description || source.text || ''),
+        image_url: String(source.image_url ?? source.imageUrl ?? ''),
         active: source.active ?? true,
       };
     })
-    .filter((row) => row.active !== false && (row.title || row.description));
+    .filter(
+      (row) =>
+        row.active !== false &&
+        (row.title.trim() || row.description.trim() || row.image_url.trim())
+    );
 };
 
 const normalizeAgendaItem = (row, index) => ({
