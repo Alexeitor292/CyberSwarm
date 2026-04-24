@@ -348,6 +348,14 @@ const createDefaultPresentationPanelists = (slotId) =>
     active: true,
   }));
 
+const createDefaultPresentationSteps = (slotId) =>
+  Array.from({ length: 3 }, (_unused, index) => ({
+    id: `${slotId}-step-${index + 1}`,
+    title: `Step ${index + 1}`,
+    description: '',
+    active: true,
+  }));
+
 const createDefaultPresentationSlide = (slot, index) => ({
   id: `presentation-slide-${slot.slot_id}`,
   slot_id: slot.slot_id,
@@ -363,6 +371,10 @@ const createDefaultPresentationSlide = (slot, index) => ({
   presentation_hide_description: false,
   presentation_panelist_font_scale: 120,
   panelists: slot.session_type === 'panel' ? createDefaultPresentationPanelists(slot.slot_id) : [],
+  presentation_steps:
+    slot.session_type === 'kahoot' || slot.session_type === 'interactive'
+      ? createDefaultPresentationSteps(slot.slot_id)
+      : [],
   active: true,
 });
 
@@ -582,6 +594,23 @@ const normalizeAgendaPanelists = (value) => {
     .filter((row) => row.active !== false && (row.name || row.role || row.company || row.bio));
 };
 
+const normalizePresentationSteps = (value) => {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((row) => {
+      const source = row && typeof row === 'object' ? row : {};
+
+      return {
+        id: source.id || createId('presentation-step'),
+        title: String(source.title || source.label || '').trim(),
+        description: String(source.description || source.text || '').trim(),
+        active: source.active ?? true,
+      };
+    })
+    .filter((row) => row.active !== false && (row.title || row.description));
+};
+
 const normalizeAgendaItem = (row, index) => ({
   id: row.id || createId('agenda'),
   order: Number.isFinite(row.order) ? row.order : index + 1,
@@ -668,6 +697,16 @@ const normalizePresentationSlideItem = (row, index, slot) => ({
     row.presentation_panelist_font_scale ?? row.presentationPanelistFontScale
   ),
   panelists: normalizeAgendaPanelists(row.panelists),
+  presentation_steps: (() => {
+    const normalizedSteps = normalizePresentationSteps(
+      row.presentation_steps ?? row.presentationSteps
+    );
+    if (normalizedSteps.length) return normalizedSteps;
+    if (slot.session_type === 'kahoot' || slot.session_type === 'interactive') {
+      return createDefaultPresentationSteps(slot.slot_id);
+    }
+    return [];
+  })(),
   active: row.active ?? true,
 });
 

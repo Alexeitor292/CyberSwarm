@@ -43,6 +43,9 @@ const hasKeyword = (item, keywords) =>
   keywords.some((keyword) => buildSearchText(item).includes(String(keyword).toLowerCase()));
 
 const isPanelItem = (item) => hasKeyword(item, ['panel']) || item?.session_type === 'panel';
+const isInteractiveItem = (item) =>
+  hasKeyword(item, ['interactive', 'kahoot', 'quiz', 'game', 'step']) ||
+  ['interactive', 'kahoot', 'workshop'].includes(String(item?.session_type || '').toLowerCase());
 const normalizePresentationSlotId = (value) => {
   const normalized = String(value || '').trim().toLowerCase();
   if (!normalized) return null;
@@ -116,6 +119,35 @@ const getPanelists = (item) => {
     role: '',
     company: companies[index] || (companies.length === 1 ? companies[0] : ''),
     bio: '',
+  }));
+};
+
+const getInteractiveSteps = (item) => {
+  const structuredSteps = Array.isArray(item?.presentation_steps)
+    ? item.presentation_steps
+        .map((step) => ({
+          id: step?.id || '',
+          title: asText(step?.title),
+          description: asText(step?.description),
+        }))
+        .filter((step) => step.title || step.description)
+    : [];
+
+  if (structuredSteps.length) {
+    return Array.from({ length: 3 }, (_unused, index) => {
+      const source = structuredSteps[index] || {};
+      return {
+        id: source.id || `interactive-step-${item?.id || 'slide'}-${index + 1}`,
+        title: source.title || `Step ${index + 1}`,
+        description: source.description || '',
+      };
+    });
+  }
+
+  return Array.from({ length: 3 }, (_unused, index) => ({
+    id: `interactive-step-${item?.id || 'slide'}-${index + 1}`,
+    title: `Step ${index + 1}`,
+    description: '',
   }));
 };
 
@@ -221,6 +253,8 @@ function StageSlide({ item, editor, listKey = 'presentationSlides' }) {
   const speakerLine = formatSpeakerLine(item);
   const showPanelists = isPanelItem(item);
   const panelists = showPanelists ? getPanelists(item) : [];
+  const showInteractiveSteps = !showPanelists && isInteractiveItem(item);
+  const interactiveSteps = showInteractiveSteps ? getInteractiveSteps(item) : [];
   const panelistFontScale = clampPresentationPanelistFontScale(
     item?.presentation_panelist_font_scale
   );
@@ -395,6 +429,31 @@ function StageSlide({ item, editor, listKey = 'presentationSlides' }) {
                 </div>
               </div>
             ) : null}
+
+            {showInteractiveSteps ? (
+              <div className="mt-10 flex-1 overflow-hidden">
+                <div className="grid h-full min-h-[340px] gap-6 md:grid-cols-3 md:gap-0 md:divide-x md:divide-primary/28">
+                  {interactiveSteps.map((step, index) => (
+                    <div
+                      key={step.id || `interactive-step-${index + 1}`}
+                      className="flex h-full flex-col px-1 py-2 md:px-8"
+                    >
+                      <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-primary/82">
+                        Step {String(index + 1).padStart(2, '0')}
+                      </p>
+                      <h3 className="mt-5 font-heading text-[2rem] leading-[1.02] text-foreground sm:text-[2.2rem] xl:text-[2.55rem]">
+                        {step.title || `Step ${index + 1}`}
+                      </h3>
+                      {step.description ? (
+                        <p className="mt-6 max-w-[36ch] font-heading text-[1.18rem] leading-[1.5] text-foreground/82">
+                          {step.description}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -477,6 +536,14 @@ export default function Presentation({
                 { id: `${slotId}-fallback-1`, name: 'Panelist 1', role: '', company: '', bio: '' },
                 { id: `${slotId}-fallback-2`, name: 'Panelist 2', role: '', company: '', bio: '' },
                 { id: `${slotId}-fallback-3`, name: 'Panelist 3', role: '', company: '', bio: '' },
+              ]
+            : [],
+        presentation_steps:
+          sessionType === 'kahoot' || sessionType === 'interactive'
+            ? [
+                { id: `${slotId}-step-1`, title: 'Step 1', description: '', active: true },
+                { id: `${slotId}-step-2`, title: 'Step 2', description: '', active: true },
+                { id: `${slotId}-step-3`, title: 'Step 3', description: '', active: true },
               ]
             : [],
       };

@@ -3233,6 +3233,9 @@ export default function AdminUI() {
     const isPanelPresentationToolSlide =
       activePresentationToolSlide?.id === 'panel-1' ||
       activePresentationToolSlide?.id === 'panel-2';
+    const isInteractivePresentationToolSlide =
+      activePresentationToolSlide?.id === 'kahoot-1' ||
+      activePresentationToolSlide?.id === 'kahoot-2';
     const buildPresentationToolPanelists = () => {
       const sourceRows = Array.isArray(activePresentationSlideItem?.panelists)
         ? activePresentationSlideItem.panelists.filter((row) => row?.active !== false)
@@ -3262,6 +3265,34 @@ export default function AdminUI() {
         active: true,
       };
       setListItemField('presentationSlides', activePresentationSlideDataIndex, 'panelists', nextPanelists);
+    };
+    const buildPresentationToolSteps = () => {
+      const sourceRows = Array.isArray(activePresentationSlideItem?.presentation_steps)
+        ? activePresentationSlideItem.presentation_steps.filter((row) => row?.active !== false)
+        : [];
+
+      return Array.from({ length: 3 }, (_unused, index) => {
+        const source = sourceRows[index] && typeof sourceRows[index] === 'object' ? sourceRows[index] : {};
+        return {
+          id: String(source.id || `presentation-step-${activePresentationSlideDataIndex}-${index + 1}`),
+          title: String(source.title || `Step ${index + 1}`),
+          description: String(source.description || ''),
+          active: true,
+        };
+      });
+    };
+    const editablePresentationSteps = buildPresentationToolSteps();
+    const setPresentationStepField = (stepIndex, key, value) => {
+      if (activePresentationSlideDataIndex < 0) return;
+      if (!Number.isInteger(stepIndex) || stepIndex < 0 || stepIndex > 2) return;
+
+      const nextSteps = buildPresentationToolSteps();
+      nextSteps[stepIndex] = {
+        ...nextSteps[stepIndex],
+        [key]: value,
+        active: true,
+      };
+      setListItemField('presentationSlides', activePresentationSlideDataIndex, 'presentation_steps', nextSteps);
     };
 
     const renderIntroControls = () => (
@@ -3707,6 +3738,48 @@ export default function AdminUI() {
                         setPresentationPanelistField(panelistIndex, 'bio', event.target.value)
                       }
                       placeholder="Bio"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {isInteractivePresentationToolSlide ? (
+            <div className="space-y-3 rounded-xl border border-primary/15 bg-background/35 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                  Interactive Steps
+                </p>
+                <span className="rounded-full border border-primary/20 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.2em] text-primary/80">
+                  3
+                </span>
+              </div>
+
+              <div className="grid gap-3 xl:grid-cols-3">
+                {editablePresentationSteps.map((step, stepIndex) => (
+                  <div
+                    key={step.id || `interactive-step-column-${stepIndex}`}
+                    className="space-y-2 rounded-xl border border-primary/15 bg-background/45 p-3"
+                  >
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/75">
+                      Step {stepIndex + 1}
+                    </p>
+                    <input
+                      className={fieldClasses}
+                      value={step.title}
+                      onChange={(event) =>
+                        setPresentationStepField(stepIndex, 'title', event.target.value)
+                      }
+                      placeholder={`Step ${stepIndex + 1} title`}
+                    />
+                    <textarea
+                      className={`${fieldClasses} min-h-20`}
+                      value={step.description}
+                      onChange={(event) =>
+                        setPresentationStepField(stepIndex, 'description', event.target.value)
+                      }
+                      placeholder="Step details"
                     />
                   </div>
                 ))}
