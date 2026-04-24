@@ -366,6 +366,12 @@ const normalizePresentationLogoSpacingPx = (value) => {
   return Math.min(240, Math.max(0, Math.round(spacing)));
 };
 
+const normalizePresentationPanelistFontScale = (value) => {
+  const scale = Number(value);
+  if (!Number.isFinite(scale)) return 120;
+  return Math.min(220, Math.max(80, Math.round(scale)));
+};
+
 const normalizeSponsorLogoOffset = (value) => {
   const offset = Number(value);
   if (!Number.isFinite(offset)) return 0;
@@ -499,23 +505,33 @@ const normalizeAgendaPanelists = (value) => {
     .filter((row) => row.active !== false && (row.name || row.role || row.company || row.bio));
 };
 
-const normalizeAgendaItems = (value) => {
-  if (!Array.isArray(value)) return DEFAULT_AGENDA_ITEMS.map((row) => ({ ...row }));
+const normalizeAgendaItem = (row, index) => ({
+  id: row.id || createId('agenda'),
+  order: Number.isFinite(row.order) ? row.order : index + 1,
+  title: row.title || '',
+  description: row.description || '',
+  speaker: row.speaker || '',
+  company: row.company || '',
+  session_label: row.session_label || '',
+  start_time: row.start_time || '',
+  end_time: row.end_time || '',
+  session_type: row.session_type || 'panel',
+  presentation_hide_description: Boolean(
+    row.presentation_hide_description ?? row.presentationHideDescription ?? false
+  ),
+  presentation_panelist_font_scale: normalizePresentationPanelistFontScale(
+    row.presentation_panelist_font_scale ?? row.presentationPanelistFontScale
+  ),
+  panelists: normalizeAgendaPanelists(row.panelists),
+  active: row.active ?? true,
+});
 
-  return value.map((row, index) => ({
-    id: row.id || createId('agenda'),
-    order: Number.isFinite(row.order) ? row.order : index + 1,
-    title: row.title || '',
-    description: row.description || '',
-    speaker: row.speaker || '',
-    company: row.company || '',
-    session_label: row.session_label || '',
-    start_time: row.start_time || '',
-    end_time: row.end_time || '',
-    session_type: row.session_type || 'panel',
-    panelists: normalizeAgendaPanelists(row.panelists),
-    active: row.active ?? true,
-  }));
+const normalizeAgendaItems = (value) => {
+  if (!Array.isArray(value)) {
+    return DEFAULT_AGENDA_ITEMS.map((row, index) => normalizeAgendaItem(row, index));
+  }
+
+  return value.map((row, index) => normalizeAgendaItem(row, index));
 };
 
 const normalizeAdminUpdates = (value) => {

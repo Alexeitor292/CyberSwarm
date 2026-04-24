@@ -49,6 +49,11 @@ const isInteractiveItem = (item) =>
   item?.session_type === 'kahoot';
 const isNetworkingItem = (item) =>
   hasKeyword(item, ['network', 'networking', 'mixer']) || item?.session_type === 'networking';
+const clampPresentationPanelistFontScale = (value) => {
+  const scale = Number(value);
+  if (!Number.isFinite(scale)) return 120;
+  return Math.min(220, Math.max(80, Math.round(scale)));
+};
 
 const formatTimeRange = (item) =>
   [asText(item?.start_time), asText(item?.end_time)].filter(Boolean).join(' - ');
@@ -117,7 +122,13 @@ function MetaPill({ children, accent = false }) {
   );
 }
 
-function PanelistCard({ panelist }) {
+function PanelistCard({ panelist, fontScale = 120 }) {
+  const resolvedScale = clampPresentationPanelistFontScale(fontScale);
+  const nameFontSizeRem = (1.9 * resolvedScale) / 100;
+  const roleFontSizeRem = (1.06 * resolvedScale) / 100;
+  const companyFontSizeRem = (0.72 * resolvedScale) / 100;
+  const bioFontSizeRem = (0.98 * resolvedScale) / 100;
+
   return (
     <article className="relative flex h-full min-h-[236px] flex-col overflow-hidden rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(11,18,29,0.98),rgba(12,13,22,0.92))] px-6 py-6 shadow-[0_24px_80px_rgba(0,0,0,0.3)] ring-1 ring-primary/10">
       <div
@@ -131,24 +142,36 @@ function PanelistCard({ panelist }) {
 
       <div className="h-1 w-16 rounded-full bg-gradient-to-r from-primary to-primary/10" aria-hidden="true" />
 
-      <h3 className="mt-6 font-heading text-[1.9rem] leading-[1.02] text-foreground xl:text-[2.05rem]">
+      <h3
+        className="mt-6 font-heading leading-[1.02] text-foreground"
+        style={{ fontSize: `${nameFontSizeRem}rem` }}
+      >
         {panelist.name || 'Panelist'}
       </h3>
 
       {panelist.role ? (
-        <p className="mt-4 font-heading text-[1.06rem] leading-snug text-foreground/90 xl:text-[1.14rem]">
+        <p
+          className="mt-4 font-heading leading-snug text-foreground/90"
+          style={{ fontSize: `${roleFontSizeRem}rem` }}
+        >
           {panelist.role}
         </p>
       ) : null}
 
       {panelist.company ? (
-        <p className="mt-2 font-mono text-[0.72rem] uppercase tracking-[0.2em] text-primary/82">
+        <p
+          className="mt-2 font-mono uppercase tracking-[0.2em] text-primary/82"
+          style={{ fontSize: `${companyFontSizeRem}rem` }}
+        >
           {panelist.company}
         </p>
       ) : null}
 
       {panelist.bio ? (
-        <p className="mt-5 font-heading text-[0.98rem] leading-7 text-foreground/78 xl:text-[1.02rem]">
+        <p
+          className="mt-5 font-heading leading-7 text-foreground/78"
+          style={{ fontSize: `${bioFontSizeRem}rem` }}
+        >
           {panelist.bio}
         </p>
       ) : null}
@@ -181,11 +204,16 @@ function StageSlide({ item, editor }) {
   const stageLabel = asText(item?.session_label);
   const title = asText(item?.title);
   const description = asText(item?.description);
+  const hideSessionDescription = Boolean(item?.presentation_hide_description);
+  const showSessionDescription = !hideSessionDescription;
   const timeRange = formatTimeRange(item);
   const speakerLine = formatSpeakerLine(item);
   const showPanelists = isPanelItem(item);
   const panelists = showPanelists ? getPanelists(item) : [];
-  const useSplitHeader = showPanelists && Boolean(description);
+  const panelistFontScale = clampPresentationPanelistFontScale(
+    item?.presentation_panelist_font_scale
+  );
+  const useSplitHeader = showPanelists && showSessionDescription && Boolean(description);
   const panelGridColumnsClassName = 'md:grid-cols-2 lg:grid-cols-3';
 
   const agendaItemIndex = Number.isInteger(item?.__index) ? item.__index : -1;
@@ -324,7 +352,7 @@ function StageSlide({ item, editor }) {
                   </p>
                 ) : null}
 
-                {description || canEditAgendaItem ? (
+                {showSessionDescription && (description || canEditAgendaItem) ? (
                   <div className="mt-8 max-w-[72rem] rounded-[1.6rem] border border-white/10 bg-white/[0.03] px-6 py-5 shadow-[0_18px_60px_rgba(0,0,0,0.2)]">
                     <p className="font-heading text-[1.35rem] leading-[1.45] text-foreground/88 sm:text-[1.55rem] xl:text-[1.85rem]">
                       {canEditAgendaItem
@@ -347,7 +375,11 @@ function StageSlide({ item, editor }) {
               <div className="mt-8 flex-1">
                 <div className={`grid h-full auto-rows-fr gap-5 xl:gap-6 ${panelGridColumnsClassName}`}>
                   {panelists.map((panelist) => (
-                    <PanelistCard key={panelist.id} panelist={panelist} />
+                    <PanelistCard
+                      key={panelist.id}
+                      panelist={panelist}
+                      fontScale={panelistFontScale}
+                    />
                   ))}
                 </div>
               </div>
@@ -417,6 +449,7 @@ export default function Presentation({
       start_time: '',
       end_time: '',
       active: true,
+      presentation_panelist_font_scale: 120,
       panelists:
         type === 'panel'
           ? [

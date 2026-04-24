@@ -301,6 +301,12 @@ const clampPresentationLogoSpacingPx = (value) => {
   return Math.min(240, Math.max(0, Math.round(spacing)));
 };
 
+const clampPresentationPanelistFontScale = (value) => {
+  const scale = Number(value);
+  if (!Number.isFinite(scale)) return 120;
+  return Math.min(220, Math.max(80, Math.round(scale)));
+};
+
 const buildPresentationAgendaSearchText = (item) =>
   [
     item?.session_label,
@@ -2785,6 +2791,8 @@ export default function AdminUI() {
                 start_time: '',
                 end_time: '',
                 session_type: 'panel',
+                presentation_hide_description: false,
+                presentation_panelist_font_scale: 120,
                 active: true,
               },
             ],
@@ -2950,7 +2958,7 @@ export default function AdminUI() {
         case 'agenda':
           return (
             <div className="space-y-3">
-              <button type="button" onClick={() => updateDraft((prev) => ({ ...prev, agendaItems: [...(prev.agendaItems || []), { id: createId('agenda'), order: (prev.agendaItems || []).length + 1, title: '', description: '', speaker: '', company: '', session_label: '', start_time: '', end_time: '', session_type: 'panel', active: true }] }))} className={outlineButtonClasses}>Add Agenda Block</button>
+              <button type="button" onClick={() => updateDraft((prev) => ({ ...prev, agendaItems: [...(prev.agendaItems || []), { id: createId('agenda'), order: (prev.agendaItems || []).length + 1, title: '', description: '', speaker: '', company: '', session_label: '', start_time: '', end_time: '', session_type: 'panel', presentation_hide_description: false, presentation_panelist_font_scale: 120, active: true }] }))} className={outlineButtonClasses}>Add Agenda Block</button>
               <div className="max-h-[560px] space-y-3 overflow-y-auto pr-1">
                 {draft.agendaItems?.length ? draft.agendaItems.map((item, index) => (
                   <div key={item.id || index} className={itemCardClasses}>
@@ -3560,6 +3568,10 @@ export default function AdminUI() {
           />
         );
       }
+      const hideSessionDescription = Boolean(activePresentationAgendaItem.presentation_hide_description);
+      const panelCardTextScale = clampPresentationPanelistFontScale(
+        activePresentationAgendaItem.presentation_panelist_font_scale
+      );
 
       return (
         <div className="space-y-3">
@@ -3584,6 +3596,20 @@ export default function AdminUI() {
               <option value="break">break</option>
             </select>
           </div>
+
+          <label className="flex items-center gap-2 rounded-xl border border-primary/15 bg-background/35 px-3 py-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={hideSessionDescription}
+              onChange={(event) =>
+                setActivePresentationAgendaField(
+                  'presentation_hide_description',
+                  event.target.checked
+                )
+              }
+            />
+            Hide session description on this slide
+          </label>
 
           <input
             className={fieldClasses}
@@ -3631,6 +3657,50 @@ export default function AdminUI() {
 
           {isPanelPresentationToolSlide ? (
             <div className="space-y-3 rounded-xl border border-primary/15 bg-background/35 p-3">
+              <label className="block space-y-1">
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                  Panel Card Text Size ({panelCardTextScale}%)
+                </span>
+                <input
+                  type="range"
+                  min="80"
+                  max="220"
+                  step="1"
+                  className="w-full accent-primary"
+                  value={panelCardTextScale}
+                  onChange={(event) =>
+                    setActivePresentationAgendaField(
+                      'presentation_panelist_font_scale',
+                      clampPresentationPanelistFontScale(Number(event.target.value))
+                    )
+                  }
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="number"
+                    min="80"
+                    max="220"
+                    className={`${fieldClasses} w-32`}
+                    value={panelCardTextScale}
+                    onChange={(event) =>
+                      setActivePresentationAgendaField(
+                        'presentation_panelist_font_scale',
+                        clampPresentationPanelistFontScale(Number(event.target.value))
+                      )
+                    }
+                  />
+                  <button
+                    type="button"
+                    className={outlineButtonClasses}
+                    onClick={() =>
+                      setActivePresentationAgendaField('presentation_panelist_font_scale', 120)
+                    }
+                  >
+                    Reset To 120%
+                  </button>
+                </div>
+              </label>
+
               <div className="flex items-center justify-between gap-3">
                 <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
                   Panel Columns
@@ -3824,7 +3894,7 @@ export default function AdminUI() {
         case 'agenda':
           return (
             <div className="space-y-3">
-              <button type="button" onClick={() => updateDraft((prev) => ({ ...prev, agendaItems: [...(prev.agendaItems || []), { id: createId('agenda'), order: (prev.agendaItems || []).length + 1, title: '', description: '', speaker: '', company: '', session_label: '', start_time: '', end_time: '', session_type: 'panel', active: true }] }))} className={outlineButtonClasses}>Add Agenda Block</button>
+              <button type="button" onClick={() => updateDraft((prev) => ({ ...prev, agendaItems: [...(prev.agendaItems || []), { id: createId('agenda'), order: (prev.agendaItems || []).length + 1, title: '', description: '', speaker: '', company: '', session_label: '', start_time: '', end_time: '', session_type: 'panel', presentation_hide_description: false, presentation_panelist_font_scale: 120, active: true }] }))} className={outlineButtonClasses}>Add Agenda Block</button>
               <div className="max-h-[560px] space-y-3 overflow-y-auto pr-1">
                 {draft.agendaItems?.length ? draft.agendaItems.map((item, index) => (
                   <div key={item.id || index} className={itemCardClasses}>
