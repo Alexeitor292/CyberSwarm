@@ -3,6 +3,32 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { useSiteContent } from '@/hooks/use-site-content';
 
+/**
+ * @typedef {{ hours: number, minutes: number }} ParsedEventTime
+ */
+
+/**
+ * @typedef {{
+ *   id?: string,
+ *   __index?: number,
+ *   name?: string,
+ *   logo_url?: string,
+ *   order?: number,
+ *   active?: boolean,
+ *   presentation_logo_scale?: number,
+ *   presentation_logo_spacing_left_px?: number,
+ *   presentation_logo_spacing_right_px?: number,
+ * }} SponsorMarqueeItem
+ */
+
+/**
+ * @typedef {'pretitle' | 'title_line_1' | 'title_line_2' | 'subtitle' | 'cta_label'} HeroFieldKey
+ */
+
+/**
+ * @param {unknown} value
+ * @returns {ParsedEventTime | null}
+ */
 const parseTimeFromEventWindow = (value) => {
   const raw = String(value || '').trim();
   if (!raw) return null;
@@ -30,18 +56,30 @@ const parseTimeFromEventWindow = (value) => {
   return { hours: hoursRaw, minutes };
 };
 
+/**
+ * @param {unknown} value
+ * @returns {number}
+ */
 const clampPresentationMarqueeLogoScale = (value) => {
   const scale = Number(value);
   if (!Number.isFinite(scale)) return 100;
   return Math.min(240, Math.max(50, Math.round(scale)));
 };
 
+/**
+ * @param {unknown} value
+ * @returns {number}
+ */
 const clampPresentationMarqueeDuration = (value) => {
   const seconds = Number(value);
   if (!Number.isFinite(seconds)) return 85;
   return Math.min(240, Math.max(20, Math.round(seconds)));
 };
 
+/**
+ * @param {unknown} value
+ * @returns {number}
+ */
 const clampPresentationMarqueeLogoSpacing = (value) => {
   const spacing = Number(value);
   if (!Number.isFinite(spacing)) return 28;
@@ -53,6 +91,11 @@ const PRESENTATION_MARQUEE_BASE_LOGO_HEIGHT_PX = 96;
 const PRESENTATION_MARQUEE_BASE_LOGO_MAX_WIDTH_PX = 420;
 const PRESENTATION_MARQUEE_BASE_FALLBACK_FONT_SIZE_PX = 36;
 
+/**
+ * @param {{ event_date?: string, event_time?: string } | undefined} eventConfig
+ * @param {{ countdown_target?: string } | undefined} hero
+ * @returns {Date}
+ */
 const resolveCountdownDate = (eventConfig, hero) => {
   const eventDate = String(eventConfig?.event_date || '').trim();
   if (eventDate) {
@@ -96,20 +139,33 @@ export default function Hero({
   const presentationMarqueeDuration = clampPresentationMarqueeDuration(
     hero?.presentation_marquee_duration_seconds
   );
-  const marqueeViewportRef = useRef(null);
-  const marqueeLoopRef = useRef(null);
+  const marqueeViewportRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const marqueeLoopRef = useRef(/** @type {HTMLUListElement | null} */ (null));
   const [marqueeLoopWidth, setMarqueeLoopWidth] = useState(0);
   const [marqueeViewportWidth, setMarqueeViewportWidth] = useState(0);
   const [marqueeImagesReady, setMarqueeImagesReady] = useState(false);
   const sponsorMarqueeItems = useMemo(() => {
-    const rows = Array.isArray(data?.sponsors) ? data.sponsors : [];
+    const rows = /** @type {SponsorMarqueeItem[]} */ (
+      Array.isArray(data?.sponsors) ? data.sponsors : []
+    );
     return rows
       .map((item, index) => ({ ...item, __index: index }))
       .filter((item) => item.active !== false && (item.logo_url || item.name))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [data?.sponsors]);
   const isEditorPreview = Boolean(editor);
-  const handleJumpToAgenda = useCallback((event) => {
+
+  /**
+   * @param {HeroFieldKey} key
+   * @returns {(value: string) => void}
+   */
+  const setHeroField = (key) => (value) => {
+    editor?.setField?.('hero', key, value);
+  };
+
+  const handleJumpToAgenda = useCallback(
+    /** @param {React.MouseEvent<HTMLAnchorElement>} event */
+    (event) => {
     event.preventDefault();
 
     const agendaSection = document.getElementById('agenda');
@@ -120,8 +176,10 @@ export default function Hero({
     }
 
     agendaSection.focus({ preventScroll: true });
-    agendaSection.scrollIntoView({ block: 'start' });
-  }, []);
+      agendaSection.scrollIntoView({ block: 'start' });
+    },
+    []
+  );
   const countdownTarget = resolveCountdownDate(eventConfig, hero);
   const countdownTargetLabel = countdownTarget.toLocaleString('en-US', {
     dateStyle: 'full',
@@ -243,6 +301,10 @@ export default function Hero({
     sponsorMarqueeItems.length > 0 &&
     marqueeLoopWidth > 0 &&
     marqueeImagesReady;
+  /**
+   * @param {SponsorMarqueeItem} sponsor
+   * @param {string} [keyPrefix]
+   */
   const renderSponsorMarqueeItem = (sponsor, keyPrefix = 'marquee') => {
     const name = String(sponsor?.name || 'Sponsor').trim() || 'Sponsor';
     const logoUrl = String(sponsor?.logo_url || '').trim();
@@ -357,7 +419,7 @@ export default function Hero({
             ? editor.text({
                 value: hero.pretitle,
                 fallback: 'Sacramento State University Presents',
-                onChange: (value) => editor.setField('hero', 'pretitle', value),
+                onChange: setHeroField('pretitle'),
                 ariaLabel: 'Hero pretitle',
               })
             : hero.pretitle || 'Sacramento State University Presents'}
@@ -374,7 +436,7 @@ export default function Hero({
               ? editor.text({
                   value: hero.title_line_1,
                   fallback: 'CYBER',
-                  onChange: (value) => editor.setField('hero', 'title_line_1', value),
+                  onChange: setHeroField('title_line_1'),
                   ariaLabel: 'Hero title line 1',
                 })
               : hero.title_line_1 || 'CYBER'}
@@ -398,7 +460,7 @@ export default function Hero({
               ? editor.text({
                   value: hero.title_line_2,
                   fallback: 'SWARM',
-                  onChange: (value) => editor.setField('hero', 'title_line_2', value),
+                  onChange: setHeroField('title_line_2'),
                   ariaLabel: 'Hero title line 2',
                 })
               : hero.title_line_2 || 'SWARM'}
@@ -418,7 +480,7 @@ export default function Hero({
                   value: hero.subtitle,
                   fallback:
                     'Cybersecurity Panel & Networking Event - Where collective defense meets collective intelligence.',
-                  onChange: (value) => editor.setField('hero', 'subtitle', value),
+                  onChange: setHeroField('subtitle'),
                   multiline: true,
                   ariaLabel: 'Hero subtitle',
                 })
@@ -512,7 +574,7 @@ export default function Hero({
                 ? editor.text({
                     value: hero.cta_label,
                     fallback: 'Join the Swarm',
-                    onChange: (value) => editor.setField('hero', 'cta_label', value),
+                    onChange: setHeroField('cta_label'),
                     ariaLabel: 'Hero CTA label',
                   })
                 : hero.cta_label || 'Join the Swarm'}
