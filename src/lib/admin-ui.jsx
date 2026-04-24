@@ -301,6 +301,35 @@ const clampPresentationLogoSpacingPx = (value) => {
   return Math.min(240, Math.max(0, Math.round(spacing)));
 };
 
+const buildPresentationAgendaSearchText = (item) =>
+  [
+    item?.session_label,
+    item?.title,
+    item?.description,
+    item?.speaker,
+    item?.company,
+    item?.session_type,
+  ]
+    .map((value) => String(value || '').trim().toLowerCase())
+    .join(' ');
+
+const hasPresentationAgendaKeyword = (item, keywords) =>
+  keywords.some((keyword) =>
+    buildPresentationAgendaSearchText(item).includes(String(keyword).toLowerCase())
+  );
+
+const isPresentationPanelAgendaItem = (item) =>
+  hasPresentationAgendaKeyword(item, ['panel']) || item?.session_type === 'panel';
+
+const isPresentationInteractiveAgendaItem = (item) =>
+  hasPresentationAgendaKeyword(item, ['interactive', 'kahoot', 'quiz', 'game']) ||
+  item?.session_type === 'interactive' ||
+  item?.session_type === 'kahoot';
+
+const isPresentationNetworkingAgendaItem = (item) =>
+  hasPresentationAgendaKeyword(item, ['network', 'networking', 'mixer']) ||
+  item?.session_type === 'networking';
+
 const collectCustomColorFrameDowngrades = (beforeContent, afterContent) => {
   const beforeSponsors = Array.isArray(beforeContent?.sponsors) ? beforeContent.sponsors : [];
   const afterSponsors = Array.isArray(afterContent?.sponsors) ? afterContent.sponsors : [];
@@ -547,6 +576,7 @@ export default function AdminUI() {
   const [calendarEventScope, setCalendarEventScope] = useState('mine');
   const [selectedSponsorIndex, setSelectedSponsorIndex] = useState(0);
   const [selectedPresentationSponsorIndex, setSelectedPresentationSponsorIndex] = useState(0);
+  const [presentationPreviewSlideIndex, setPresentationPreviewSlideIndex] = useState(0);
   const [selectedSponsorLeadIndex, setSelectedSponsorLeadIndex] = useState(0);
   const [sponsorLogoUploading, setSponsorLogoUploading] = useState(false);
   const [pendingSponsorLeadDeleteId, setPendingSponsorLeadDeleteId] = useState('');
@@ -3159,6 +3189,511 @@ export default function AdminUI() {
       );
     };
 
+    const orderedPresentationAgendaItems = (draft?.agendaItems || [])
+      .map((item, index) => ({ ...item, __index: index }))
+      .filter((item) => item.active !== false)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+    const panelPresentationItems = orderedPresentationAgendaItems.filter((item) =>
+      isPresentationPanelAgendaItem(item)
+    );
+    const kahootPresentationItems = orderedPresentationAgendaItems.filter((item) =>
+      isPresentationInteractiveAgendaItem(item)
+    );
+    const networkingPresentationItem =
+      orderedPresentationAgendaItems.find((item) => isPresentationNetworkingAgendaItem(item)) || null;
+
+    const presentationToolSlides = [
+      {
+        id: 'intro',
+        title: 'Intro & Marquee',
+        shortLabel: 'Intro',
+        type: 'intro',
+        agendaItem: null,
+      },
+      {
+        id: 'panel-1',
+        title: 'Panel 1',
+        shortLabel: 'Panel 1',
+        type: 'agenda',
+        agendaItem: panelPresentationItems[0] || null,
+      },
+      {
+        id: 'kahoot-1',
+        title: 'Kahoot 1',
+        shortLabel: 'Kahoot 1',
+        type: 'agenda',
+        agendaItem: kahootPresentationItems[0] || null,
+      },
+      {
+        id: 'panel-2',
+        title: 'Panel 2',
+        shortLabel: 'Panel 2',
+        type: 'agenda',
+        agendaItem: panelPresentationItems[1] || null,
+      },
+      {
+        id: 'kahoot-2',
+        title: 'Kahoot 2',
+        shortLabel: 'Kahoot 2',
+        type: 'agenda',
+        agendaItem: kahootPresentationItems[1] || null,
+      },
+      {
+        id: 'networking',
+        title: 'Networking',
+        shortLabel: 'Networking',
+        type: 'agenda',
+        agendaItem: networkingPresentationItem,
+      },
+    ];
+
+    const clampedPresentationSlideIndex = Math.max(
+      0,
+      Math.min(presentationPreviewSlideIndex, presentationToolSlides.length - 1)
+    );
+    const activePresentationToolSlide =
+      presentationToolSlides[clampedPresentationSlideIndex] || presentationToolSlides[0];
+    const activePresentationAgendaItem = activePresentationToolSlide?.agendaItem || null;
+    const activePresentationAgendaDataIndex = Number.isInteger(activePresentationAgendaItem?.__index)
+      ? activePresentationAgendaItem.__index
+      : -1;
+
+    const setActivePresentationAgendaField = (key, value) => {
+      if (activePresentationAgendaDataIndex < 0) return;
+      setListItemField('agendaItems', activePresentationAgendaDataIndex, key, value);
+    };
+
+    const ActivePresentationToolIcon =
+      activePresentationToolSlide?.type === 'intro' ? Eye : LayoutDashboard;
+    const isPanelPresentationToolSlide =
+      activePresentationToolSlide?.id === 'panel-1' ||
+      activePresentationToolSlide?.id === 'panel-2';
+    const buildPresentationToolPanelists = () => {
+      const sourceRows = Array.isArray(activePresentationAgendaItem?.panelists)
+        ? activePresentationAgendaItem.panelists.filter((row) => row?.active !== false)
+        : [];
+
+      return Array.from({ length: 3 }, (_unused, index) => {
+        const source = sourceRows[index] && typeof sourceRows[index] === 'object' ? sourceRows[index] : {};
+        return {
+          id: String(source.id || `presentation-panelist-${activePresentationAgendaDataIndex}-${index + 1}`),
+          name: String(source.name || ''),
+          role: String(source.role || ''),
+          company: String(source.company || ''),
+          bio: String(source.bio || ''),
+          active: true,
+        };
+      });
+    };
+    const editablePresentationPanelists = buildPresentationToolPanelists();
+    const setPresentationPanelistField = (panelistIndex, key, value) => {
+      if (activePresentationAgendaDataIndex < 0) return;
+      if (!Number.isInteger(panelistIndex) || panelistIndex < 0 || panelistIndex > 2) return;
+
+      const nextPanelists = buildPresentationToolPanelists();
+      nextPanelists[panelistIndex] = {
+        ...nextPanelists[panelistIndex],
+        [key]: value,
+        active: true,
+      };
+      setListItemField('agendaItems', activePresentationAgendaDataIndex, 'panelists', nextPanelists);
+    };
+
+    const renderIntroControls = () => (
+      <div className="space-y-4">
+        <div className="space-y-3">
+          <input
+            className={fieldClasses}
+            value={draft.hero?.pretitle || ''}
+            onChange={(event) => setField('hero', 'pretitle', event.target.value)}
+            placeholder="Pretitle"
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              className={fieldClasses}
+              value={draft.hero?.title_line_1 || ''}
+              onChange={(event) => setField('hero', 'title_line_1', event.target.value)}
+              placeholder="Title line 1"
+            />
+            <input
+              className={fieldClasses}
+              value={draft.hero?.title_line_2 || ''}
+              onChange={(event) => setField('hero', 'title_line_2', event.target.value)}
+              placeholder="Title line 2"
+            />
+          </div>
+          <label className="block space-y-1">
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+              Marquee Loop Duration ({presentationMarqueeDurationSeconds}s)
+            </span>
+            <input
+              type="range"
+              min="20"
+              max="240"
+              step="1"
+              className="w-full accent-primary"
+              value={presentationMarqueeDurationSeconds}
+              onChange={(event) => updatePresentationMarqueeDuration(Number(event.target.value))}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="number"
+                min="20"
+                max="240"
+                className={`${fieldClasses} w-32`}
+                value={presentationMarqueeDurationSeconds}
+                onChange={(event) => updatePresentationMarqueeDuration(Number(event.target.value))}
+              />
+              <span className="font-mono text-[11px] text-muted-foreground/75">Lower is faster.</span>
+            </div>
+          </label>
+        </div>
+
+        <div className="rounded-xl border border-primary/15 bg-background/35 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+              Marquee Sponsors
+            </p>
+            <span className="rounded-full border border-primary/20 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.2em] text-primary/80">
+              {presentationSponsorEntries.length}
+            </span>
+          </div>
+
+          {presentationSponsorEntries.length ? (
+            <>
+              <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
+                {presentationSponsorEntries.map(({ sponsor, index }, listIndex) => {
+                  const isActive = listIndex === selectedPresentationSponsorIndex;
+                  const scale = clampPresentationLogoScale(sponsor?.presentation_logo_scale);
+                  const leftSpacing = clampPresentationLogoSpacingPx(
+                    sponsor?.presentation_logo_spacing_left_px
+                  );
+                  const rightSpacing = clampPresentationLogoSpacingPx(
+                    sponsor?.presentation_logo_spacing_right_px
+                  );
+
+                  return (
+                    <button
+                      key={sponsor.id || `presentation-sponsor-${index}`}
+                      type="button"
+                      onClick={() => setSelectedPresentationSponsorIndex(listIndex)}
+                      className={`w-full rounded-xl border px-3 py-2.5 text-left transition ${
+                        isActive
+                          ? 'border-primary/45 bg-primary/12 text-foreground'
+                          : 'border-primary/15 bg-background/35 text-muted-foreground hover:border-primary/30 hover:bg-background/55 hover:text-foreground'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-heading text-base text-foreground">
+                          {sponsor.name || 'Unnamed sponsor'}
+                        </p>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary/80">
+                          {scale}% | L{leftSpacing}/R{rightSpacing}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {selectedPresentationSponsor ? (
+                <div className="mt-4 space-y-3">
+                  <div className="h-32 overflow-hidden rounded-full border border-primary/30 bg-[rgba(237,239,242,0.93)] px-4">
+                    <div className="flex h-full items-center justify-center overflow-hidden">
+                      <div
+                        className="flex h-full shrink-0 items-center"
+                        style={{
+                          paddingLeft: `${selectedPresentationLogoLeftSpacing}px`,
+                          paddingRight: `${selectedPresentationLogoRightSpacing}px`,
+                        }}
+                      >
+                        {selectedPresentationSponsor.logo_url ? (
+                          <img
+                            src={selectedPresentationSponsor.logo_url}
+                            alt={`${selectedPresentationSponsor.name || 'Sponsor'} logo preview`}
+                            className="w-auto object-contain opacity-95"
+                            style={{
+                              height: `${selectedPresentationLogoHeight}px`,
+                              maxWidth: `${selectedPresentationLogoMaxWidth}px`,
+                              filter:
+                                'drop-shadow(0 0 6px rgba(0,0,0,0.2)) drop-shadow(0 0 1px rgba(0,0,0,0.25))',
+                            }}
+                          />
+                        ) : (
+                          <p
+                            className="font-heading uppercase tracking-[0.16em] text-slate-900/85"
+                            style={{
+                              fontSize: `${Math.round((36 * selectedPresentationLogoScale) / 100)}px`,
+                              lineHeight: 1,
+                              textShadow: '0 0 6px rgba(0,0,0,0.2)',
+                            }}
+                          >
+                            {selectedPresentationSponsor.name || 'Sponsor'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <label className="block space-y-1">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                      Presentation Logo Size ({selectedPresentationLogoScale}%)
+                    </span>
+                    <input
+                      type="range"
+                      min="50"
+                      max="240"
+                      step="1"
+                      className="w-full accent-primary"
+                      value={selectedPresentationLogoScale}
+                      onChange={(event) =>
+                        updateSelectedPresentationScale(Number(event.target.value))
+                      }
+                    />
+                  </label>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="number"
+                      min="50"
+                      max="240"
+                      className={`${fieldClasses} w-32`}
+                      value={selectedPresentationLogoScale}
+                      onChange={(event) =>
+                        updateSelectedPresentationScale(Number(event.target.value))
+                      }
+                    />
+                    <button
+                      type="button"
+                      className={outlineButtonClasses}
+                      onClick={() => updateSelectedPresentationScale(100)}
+                    >
+                      Reset To 100%
+                    </button>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block space-y-1">
+                      <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                        Left Space ({selectedPresentationLogoLeftSpacing}px)
+                      </span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="240"
+                        step="1"
+                        className="w-full accent-primary"
+                        value={selectedPresentationLogoLeftSpacing}
+                        onChange={(event) =>
+                          updateSelectedPresentationLeftSpacing(Number(event.target.value))
+                        }
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        max="240"
+                        className={fieldClasses}
+                        value={selectedPresentationLogoLeftSpacing}
+                        onChange={(event) =>
+                          updateSelectedPresentationLeftSpacing(Number(event.target.value))
+                        }
+                      />
+                    </label>
+
+                    <label className="block space-y-1">
+                      <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                        Right Space ({selectedPresentationLogoRightSpacing}px)
+                      </span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="240"
+                        step="1"
+                        className="w-full accent-primary"
+                        value={selectedPresentationLogoRightSpacing}
+                        onChange={(event) =>
+                          updateSelectedPresentationRightSpacing(Number(event.target.value))
+                        }
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        max="240"
+                        className={fieldClasses}
+                        value={selectedPresentationLogoRightSpacing}
+                        onChange={(event) =>
+                          updateSelectedPresentationRightSpacing(Number(event.target.value))
+                        }
+                      />
+                    </label>
+                  </div>
+
+                  <button
+                    type="button"
+                    className={outlineButtonClasses}
+                    onClick={() => {
+                      updateSelectedPresentationLeftSpacing(28);
+                      updateSelectedPresentationRightSpacing(28);
+                    }}
+                  >
+                    Reset Spacing To 28px
+                  </button>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <EmptyState
+              title="No active marquee logos"
+              description="Publish sponsor cards with a name or logo URL to manage their presentation marquee size."
+            />
+          )}
+        </div>
+      </div>
+    );
+
+    const renderAgendaSlideControls = () => {
+      if (!activePresentationAgendaItem) {
+        return (
+          <EmptyState
+            title={`No ${activePresentationToolSlide.shortLabel.toLowerCase()} agenda item`}
+            description="This presentation page maps to active agenda blocks. Add or activate a matching agenda item to edit it here."
+          />
+        );
+      }
+
+      return (
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              className={fieldClasses}
+              value={activePresentationAgendaItem.session_label || ''}
+              onChange={(event) => setActivePresentationAgendaField('session_label', event.target.value)}
+              placeholder="Session label"
+            />
+            <select
+              className={fieldClasses}
+              value={activePresentationAgendaItem.session_type || 'panel'}
+              onChange={(event) => setActivePresentationAgendaField('session_type', event.target.value)}
+            >
+              <option value="panel">panel</option>
+              <option value="interactive">interactive</option>
+              <option value="kahoot">kahoot</option>
+              <option value="networking">networking</option>
+              <option value="workshop">workshop</option>
+              <option value="keynote">keynote</option>
+              <option value="break">break</option>
+            </select>
+          </div>
+
+          <input
+            className={fieldClasses}
+            value={activePresentationAgendaItem.title || ''}
+            onChange={(event) => setActivePresentationAgendaField('title', event.target.value)}
+            placeholder="Session title"
+          />
+
+          <textarea
+            className={`${fieldClasses} min-h-28`}
+            value={activePresentationAgendaItem.description || ''}
+            onChange={(event) => setActivePresentationAgendaField('description', event.target.value)}
+            placeholder="Session description"
+          />
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              className={fieldClasses}
+              value={activePresentationAgendaItem.speaker || ''}
+              onChange={(event) => setActivePresentationAgendaField('speaker', event.target.value)}
+              placeholder="Speaker"
+            />
+            <input
+              className={fieldClasses}
+              value={activePresentationAgendaItem.company || ''}
+              onChange={(event) => setActivePresentationAgendaField('company', event.target.value)}
+              placeholder="Company"
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              className={fieldClasses}
+              value={activePresentationAgendaItem.start_time || ''}
+              onChange={(event) => setActivePresentationAgendaField('start_time', event.target.value)}
+              placeholder="Start time"
+            />
+            <input
+              className={fieldClasses}
+              value={activePresentationAgendaItem.end_time || ''}
+              onChange={(event) => setActivePresentationAgendaField('end_time', event.target.value)}
+              placeholder="End time"
+            />
+          </div>
+
+          {isPanelPresentationToolSlide ? (
+            <div className="space-y-3 rounded-xl border border-primary/15 bg-background/35 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+                  Panel Columns
+                </p>
+                <span className="rounded-full border border-primary/20 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.2em] text-primary/80">
+                  3
+                </span>
+              </div>
+
+              <div className="grid gap-3 xl:grid-cols-3">
+                {editablePresentationPanelists.map((panelist, panelistIndex) => (
+                  <div
+                    key={panelist.id || `panel-column-${panelistIndex}`}
+                    className="space-y-2 rounded-xl border border-primary/15 bg-background/45 p-3"
+                  >
+                    <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/75">
+                      Column {panelistIndex + 1}
+                    </p>
+                    <input
+                      className={fieldClasses}
+                      value={panelist.name}
+                      onChange={(event) =>
+                        setPresentationPanelistField(panelistIndex, 'name', event.target.value)
+                      }
+                      placeholder={`Panelist ${panelistIndex + 1} name`}
+                    />
+                    <input
+                      className={fieldClasses}
+                      value={panelist.role}
+                      onChange={(event) =>
+                        setPresentationPanelistField(panelistIndex, 'role', event.target.value)
+                      }
+                      placeholder="Role"
+                    />
+                    <input
+                      className={fieldClasses}
+                      value={panelist.company}
+                      onChange={(event) =>
+                        setPresentationPanelistField(panelistIndex, 'company', event.target.value)
+                      }
+                      placeholder="Company"
+                    />
+                    <textarea
+                      className={`${fieldClasses} min-h-20`}
+                      value={panelist.bio}
+                      onChange={(event) =>
+                        setPresentationPanelistField(panelistIndex, 'bio', event.target.value)
+                      }
+                      placeholder="Bio"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <p className="font-mono text-xs leading-6 text-muted-foreground/75">
+            These fields map directly to the matching agenda block used by this presentation page.
+          </p>
+        </div>
+      );
+    };
+
     return (
       <div className="space-y-6">
         <Section
@@ -3166,8 +3701,7 @@ export default function AdminUI() {
           title="Projector Deck Canvas"
           description="Edit the fixed 6-slide /presentation deck: Intro, Panel 1, Kahoot 1, Panel 2, Kahoot 2, Networking."
         >
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.82fr)]">
-            <div className="min-w-0 space-y-4">
+          <div className="min-w-0 space-y-4">
               <div className="overflow-hidden rounded-[1.5rem] border border-primary/20 bg-background shadow-[0_24px_80px_hsl(var(--primary)/0.08)]">
                 <div className="flex items-center justify-between border-b border-primary/10 bg-background/45 px-4 py-3">
                   <div className="flex gap-1.5">
@@ -3181,7 +3715,13 @@ export default function AdminUI() {
                 </div>
 
                 <div className="h-[760px] overflow-hidden bg-background">
-                  <Presentation content={draft} editor={inlineEditor} preview />
+                  <Presentation
+                    content={draft}
+                    editor={inlineEditor}
+                    preview
+                    requestedSlideIndex={presentationPreviewSlideIndex}
+                    onActiveSlideChange={setPresentationPreviewSlideIndex}
+                  />
                 </div>
               </div>
 
@@ -3194,275 +3734,56 @@ export default function AdminUI() {
                   items in this order: first panel, first kahoot, second panel, second kahoot, first networking.
                 </p>
               </div>
-            </div>
 
-            <div className={`${itemCardClasses} self-start`}>
-              <div className="flex items-center gap-3">
-                <div className="rounded-xl border border-primary/20 bg-primary/10 p-3 text-primary">
-                  <Eye className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary/75">
-                    Slide Tools
-                  </p>
-                  <h3 className="font-heading text-2xl text-foreground">Intro & Marquee</h3>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <input
-                  className={fieldClasses}
-                  value={draft.hero?.pretitle || ''}
-                  onChange={(event) => setField('hero', 'pretitle', event.target.value)}
-                  placeholder="Pretitle"
-                />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <input
-                    className={fieldClasses}
-                    value={draft.hero?.title_line_1 || ''}
-                    onChange={(event) => setField('hero', 'title_line_1', event.target.value)}
-                    placeholder="Title line 1"
-                  />
-                  <input
-                    className={fieldClasses}
-                    value={draft.hero?.title_line_2 || ''}
-                    onChange={(event) => setField('hero', 'title_line_2', event.target.value)}
-                    placeholder="Title line 2"
-                  />
-                </div>
-                <label className="block space-y-1">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
-                    Marquee Loop Duration ({presentationMarqueeDurationSeconds}s)
-                  </span>
-                  <input
-                    type="range"
-                    min="20"
-                    max="240"
-                    step="1"
-                    className="w-full accent-primary"
-                    value={presentationMarqueeDurationSeconds}
-                    onChange={(event) =>
-                      updatePresentationMarqueeDuration(Number(event.target.value))
-                    }
-                  />
-                  <div className="flex flex-wrap items-center gap-2">
-                    <input
-                      type="number"
-                      min="20"
-                      max="240"
-                      className={`${fieldClasses} w-32`}
-                      value={presentationMarqueeDurationSeconds}
-                      onChange={(event) =>
-                        updatePresentationMarqueeDuration(Number(event.target.value))
-                      }
-                    />
-                    <span className="font-mono text-[11px] text-muted-foreground/75">
-                      Lower is faster.
-                    </span>
-                  </div>
-                </label>
-              </div>
-
-              <div className="rounded-xl border border-primary/15 bg-background/35 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
-                    Marquee Sponsors
-                  </p>
-                  <span className="rounded-full border border-primary/20 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.2em] text-primary/80">
-                    {presentationSponsorEntries.length}
-                  </span>
-                </div>
-
-                {presentationSponsorEntries.length ? (
-                  <>
-                    <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
-                      {presentationSponsorEntries.map(({ sponsor, index }, listIndex) => {
-                        const isActive = listIndex === selectedPresentationSponsorIndex;
-                        const scale = clampPresentationLogoScale(sponsor?.presentation_logo_scale);
-                        const leftSpacing = clampPresentationLogoSpacingPx(
-                          sponsor?.presentation_logo_spacing_left_px
-                        );
-                        const rightSpacing = clampPresentationLogoSpacingPx(
-                          sponsor?.presentation_logo_spacing_right_px
-                        );
-
-                        return (
-                          <button
-                            key={sponsor.id || `presentation-sponsor-${index}`}
-                            type="button"
-                            onClick={() => setSelectedPresentationSponsorIndex(listIndex)}
-                            className={`w-full rounded-xl border px-3 py-2.5 text-left transition ${
-                              isActive
-                                ? 'border-primary/45 bg-primary/12 text-foreground'
-                                : 'border-primary/15 bg-background/35 text-muted-foreground hover:border-primary/30 hover:bg-background/55 hover:text-foreground'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <p className="font-heading text-base text-foreground">
-                                {sponsor.name || 'Unnamed sponsor'}
-                              </p>
-                              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary/80">
-                                {scale}% | L{leftSpacing}/R{rightSpacing}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
+              <details className={`${itemCardClasses} group/tools`} open={false}>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-xl border border-primary/20 bg-primary/10 p-3 text-primary">
+                      <ActivePresentationToolIcon className="h-5 w-5" />
                     </div>
+                    <div>
+                      <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary/75">
+                        Slide Tools
+                      </p>
+                      <h3 className="font-heading text-2xl text-foreground">
+                        {activePresentationToolSlide.title}
+                      </h3>
+                    </div>
+                  </div>
+                  <span className="rounded-full border border-primary/20 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.24em] text-muted-foreground transition group-open/tools:text-primary">
+                    Show / Hide
+                  </span>
+                </summary>
+                <p className="mt-3 font-mono text-xs leading-6 text-muted-foreground/70">
+                  Click a presentation page below. The controls switch automatically to match the selected page.
+                </p>
 
-                    {selectedPresentationSponsor ? (
-                      <div className="mt-4 space-y-3">
-                        <div className="h-32 overflow-hidden rounded-full border border-primary/30 bg-[rgba(237,239,242,0.93)] px-4">
-                          <div className="flex h-full items-center justify-center overflow-hidden">
-                            <div
-                              className="flex h-full shrink-0 items-center"
-                              style={{
-                                paddingLeft: `${selectedPresentationLogoLeftSpacing}px`,
-                                paddingRight: `${selectedPresentationLogoRightSpacing}px`,
-                              }}
-                            >
-                              {selectedPresentationSponsor.logo_url ? (
-                                <img
-                                  src={selectedPresentationSponsor.logo_url}
-                                  alt={`${selectedPresentationSponsor.name || 'Sponsor'} logo preview`}
-                                  className="w-auto object-contain opacity-95"
-                                  style={{
-                                    height: `${selectedPresentationLogoHeight}px`,
-                                    maxWidth: `${selectedPresentationLogoMaxWidth}px`,
-                                    filter:
-                                      'drop-shadow(0 0 6px rgba(0,0,0,0.2)) drop-shadow(0 0 1px rgba(0,0,0,0.25))',
-                                  }}
-                                />
-                              ) : (
-                                <p
-                                  className="font-heading uppercase tracking-[0.16em] text-slate-900/85"
-                                  style={{
-                                    fontSize: `${Math.round((36 * selectedPresentationLogoScale) / 100)}px`,
-                                    lineHeight: 1,
-                                    textShadow: '0 0 6px rgba(0,0,0,0.2)',
-                                  }}
-                                >
-                                  {selectedPresentationSponsor.name || 'Sponsor'}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <label className="block space-y-1">
-                          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
-                            Presentation Logo Size ({selectedPresentationLogoScale}%)
-                          </span>
-                          <input
-                            type="range"
-                            min="50"
-                            max="240"
-                            step="1"
-                            className="w-full accent-primary"
-                            value={selectedPresentationLogoScale}
-                            onChange={(event) =>
-                              updateSelectedPresentationScale(Number(event.target.value))
-                            }
-                          />
-                        </label>
-
-                        <div className="flex flex-wrap items-center gap-2">
-                          <input
-                            type="number"
-                            min="50"
-                            max="240"
-                            className={`${fieldClasses} w-32`}
-                            value={selectedPresentationLogoScale}
-                            onChange={(event) =>
-                              updateSelectedPresentationScale(Number(event.target.value))
-                            }
-                          />
-                          <button
-                            type="button"
-                            className={outlineButtonClasses}
-                            onClick={() => updateSelectedPresentationScale(100)}
-                          >
-                            Reset To 100%
-                          </button>
-                        </div>
-
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <label className="block space-y-1">
-                            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
-                              Left Space ({selectedPresentationLogoLeftSpacing}px)
-                            </span>
-                            <input
-                              type="range"
-                              min="0"
-                              max="240"
-                              step="1"
-                              className="w-full accent-primary"
-                              value={selectedPresentationLogoLeftSpacing}
-                              onChange={(event) =>
-                                updateSelectedPresentationLeftSpacing(Number(event.target.value))
-                              }
-                            />
-                            <input
-                              type="number"
-                              min="0"
-                              max="240"
-                              className={fieldClasses}
-                              value={selectedPresentationLogoLeftSpacing}
-                              onChange={(event) =>
-                                updateSelectedPresentationLeftSpacing(Number(event.target.value))
-                              }
-                            />
-                          </label>
-
-                          <label className="block space-y-1">
-                            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
-                              Right Space ({selectedPresentationLogoRightSpacing}px)
-                            </span>
-                            <input
-                              type="range"
-                              min="0"
-                              max="240"
-                              step="1"
-                              className="w-full accent-primary"
-                              value={selectedPresentationLogoRightSpacing}
-                              onChange={(event) =>
-                                updateSelectedPresentationRightSpacing(Number(event.target.value))
-                              }
-                            />
-                            <input
-                              type="number"
-                              min="0"
-                              max="240"
-                              className={fieldClasses}
-                              value={selectedPresentationLogoRightSpacing}
-                              onChange={(event) =>
-                                updateSelectedPresentationRightSpacing(Number(event.target.value))
-                              }
-                            />
-                          </label>
-                        </div>
-
+                <div className="mt-4 space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    {presentationToolSlides.map((slide, index) => {
+                      const isActive = index === clampedPresentationSlideIndex;
+                      return (
                         <button
+                          key={slide.id}
                           type="button"
-                          className={outlineButtonClasses}
-                          onClick={() => {
-                            updateSelectedPresentationLeftSpacing(28);
-                            updateSelectedPresentationRightSpacing(28);
-                          }}
+                          onClick={() => setPresentationPreviewSlideIndex(index)}
+                          className={`rounded-full border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] transition ${
+                            isActive
+                              ? 'border-primary/45 bg-primary/12 text-primary'
+                              : 'border-primary/20 bg-background/30 text-muted-foreground hover:border-primary/35 hover:text-foreground'
+                          }`}
                         >
-                          Reset Spacing To 28px
+                          {String(index + 1).padStart(2, '0')} {slide.shortLabel}
                         </button>
-                      </div>
-                    ) : null}
-                  </>
-                ) : (
-                  <EmptyState
-                    title="No active marquee logos"
-                    description="Publish sponsor cards with a name or logo URL to manage their presentation marquee size."
-                  />
-                )}
-              </div>
-            </div>
+                      );
+                    })}
+                  </div>
+
+                  {activePresentationToolSlide.type === 'intro'
+                    ? renderIntroControls()
+                    : renderAgendaSlideControls()}
+                </div>
+              </details>
           </div>
         </Section>
       </div>

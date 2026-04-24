@@ -364,13 +364,22 @@ function StageSlide({ item, editor }) {
  *   content?: import('../data/siteData').DEFAULT_SITE_CONTENT | undefined,
  *   editor?: any,
  *   preview?: boolean,
+ *   requestedSlideIndex?: number | undefined,
+ *   onActiveSlideChange?: ((index: number, slide: any) => void) | undefined,
  * }} props
  */
-export default function Presentation({ content, editor, preview = false } = {}) {
+export default function Presentation({
+  content,
+  editor,
+  preview = false,
+  requestedSlideIndex = undefined,
+  onActiveSlideChange = undefined,
+} = {}) {
   const { data: siteData, isLoading } = useSiteContent();
   const data = content || siteData;
   const scrollContainerRef = useRef(null);
   const slideNodesRef = useRef([]);
+  const activeSlideIndexRef = useRef(0);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [isCursorHidden, setIsCursorHidden] = useState(false);
   const [showSlideControls, setShowSlideControls] = useState(false);
@@ -522,6 +531,23 @@ export default function Presentation({ content, editor, preview = false } = {}) 
     },
     [slides.length]
   );
+
+  useEffect(() => {
+    if (typeof onActiveSlideChange !== 'function') return;
+    onActiveSlideChange(activeSlideIndex, slides[activeSlideIndex] || null);
+  }, [activeSlideIndex, onActiveSlideChange, slides]);
+
+  useEffect(() => {
+    activeSlideIndexRef.current = activeSlideIndex;
+  }, [activeSlideIndex]);
+
+  useEffect(() => {
+    if (!preview) return;
+    if (!Number.isInteger(requestedSlideIndex)) return;
+    const clampedIndex = Math.max(0, Math.min(requestedSlideIndex, slides.length - 1));
+    if (clampedIndex === activeSlideIndexRef.current) return;
+    goToSlide(clampedIndex);
+  }, [goToSlide, preview, requestedSlideIndex, slides.length]);
 
   /** @type {(event: import('react').MouseEvent<HTMLAnchorElement>) => void} */
   const handleSkipToSlides = useCallback((event) => {
