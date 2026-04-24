@@ -294,6 +294,81 @@ export const DEFAULT_AGENDA_ITEMS = [
   },
 ];
 
+export const PRESENTATION_DECK_SLOTS = [
+  {
+    slot_id: 'panel-1',
+    short_label: 'Panel 1',
+    session_type: 'panel',
+    session_label: 'PANEL',
+    title: 'Panel Discussion 1',
+    description: 'Add panel details for the first presentation panel slide.',
+  },
+  {
+    slot_id: 'kahoot-1',
+    short_label: 'Kahoot 1',
+    session_type: 'kahoot',
+    session_label: 'KAHOOT',
+    title: 'Kahoot Session 1',
+    description: 'Add details for the first interactive kahoot slide.',
+  },
+  {
+    slot_id: 'panel-2',
+    short_label: 'Panel 2',
+    session_type: 'panel',
+    session_label: 'PANEL',
+    title: 'Panel Discussion 2',
+    description: 'Add panel details for the second presentation panel slide.',
+  },
+  {
+    slot_id: 'kahoot-2',
+    short_label: 'Kahoot 2',
+    session_type: 'kahoot',
+    session_label: 'KAHOOT',
+    title: 'Kahoot Session 2',
+    description: 'Add details for the second interactive kahoot slide.',
+  },
+  {
+    slot_id: 'networking',
+    short_label: 'Networking',
+    session_type: 'networking',
+    session_label: 'NETWORKING',
+    title: 'Networking Session',
+    description: 'Add details for the final networking slide.',
+  },
+];
+
+const createDefaultPresentationPanelists = (slotId) =>
+  Array.from({ length: 3 }, (_unused, index) => ({
+    id: `${slotId}-panelist-${index + 1}`,
+    name: `Panelist ${index + 1}`,
+    role: '',
+    company: '',
+    bio: '',
+    active: true,
+  }));
+
+const createDefaultPresentationSlide = (slot, index) => ({
+  id: `presentation-slide-${slot.slot_id}`,
+  slot_id: slot.slot_id,
+  order: index + 1,
+  title: slot.title,
+  description: slot.description,
+  speaker: '',
+  company: '',
+  session_label: slot.session_label,
+  start_time: '',
+  end_time: '',
+  session_type: slot.session_type,
+  presentation_hide_description: false,
+  presentation_panelist_font_scale: 120,
+  panelists: slot.session_type === 'panel' ? createDefaultPresentationPanelists(slot.slot_id) : [],
+  active: true,
+});
+
+export const DEFAULT_PRESENTATION_SLIDES = PRESENTATION_DECK_SLOTS.map((slot, index) =>
+  createDefaultPresentationSlide(slot, index)
+);
+
 export const DEFAULT_ADMIN_UPDATES = [
   {
     id: 'update-1',
@@ -321,6 +396,7 @@ export const DEFAULT_SITE_CONTENT = {
   organizationsSection: DEFAULT_ORGANIZATIONS_SECTION_CONFIG,
   organizations: DEFAULT_ORGANIZATIONS,
   agendaItems: DEFAULT_AGENDA_ITEMS,
+  presentationSlides: DEFAULT_PRESENTATION_SLIDES,
   adminUpdates: DEFAULT_ADMIN_UPDATES,
   operations: DEFAULT_OPERATIONS_CONFIG,
 };
@@ -516,12 +592,6 @@ const normalizeAgendaItem = (row, index) => ({
   start_time: row.start_time || '',
   end_time: row.end_time || '',
   session_type: row.session_type || 'panel',
-  presentation_hide_description: Boolean(
-    row.presentation_hide_description ?? row.presentationHideDescription ?? false
-  ),
-  presentation_panelist_font_scale: normalizePresentationPanelistFontScale(
-    row.presentation_panelist_font_scale ?? row.presentationPanelistFontScale
-  ),
   panelists: normalizeAgendaPanelists(row.panelists),
   active: row.active ?? true,
 });
@@ -532,6 +602,128 @@ const normalizeAgendaItems = (value) => {
   }
 
   return value.map((row, index) => normalizeAgendaItem(row, index));
+};
+
+const normalizePresentationSlideSlotId = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return null;
+  if (['panel-1', 'panel1', 'panel_1', 'slide-panel-1'].includes(normalized)) return 'panel-1';
+  if (['kahoot-1', 'kahoot1', 'kahoot_1', 'interactive-1', 'interactive1'].includes(normalized)) {
+    return 'kahoot-1';
+  }
+  if (['panel-2', 'panel2', 'panel_2', 'slide-panel-2'].includes(normalized)) return 'panel-2';
+  if (['kahoot-2', 'kahoot2', 'kahoot_2', 'interactive-2', 'interactive2'].includes(normalized)) {
+    return 'kahoot-2';
+  }
+  if (['networking', 'network', 'mixer', 'slide-networking'].includes(normalized)) return 'networking';
+  return null;
+};
+
+const buildPresentationLegacySearchText = (item) =>
+  [
+    item?.session_label,
+    item?.title,
+    item?.description,
+    item?.speaker,
+    item?.company,
+    item?.session_type,
+  ]
+    .map((value) => String(value || '').trim().toLowerCase())
+    .join(' ');
+
+const hasPresentationLegacyKeyword = (item, keywords) =>
+  keywords.some((keyword) =>
+    buildPresentationLegacySearchText(item).includes(String(keyword).toLowerCase())
+  );
+
+const isLegacyPanelPresentationAgendaItem = (item) =>
+  hasPresentationLegacyKeyword(item, ['panel']) || item?.session_type === 'panel';
+
+const isLegacyInteractivePresentationAgendaItem = (item) =>
+  hasPresentationLegacyKeyword(item, ['interactive', 'kahoot', 'quiz', 'game']) ||
+  item?.session_type === 'interactive' ||
+  item?.session_type === 'kahoot';
+
+const isLegacyNetworkingPresentationAgendaItem = (item) =>
+  hasPresentationLegacyKeyword(item, ['network', 'networking', 'mixer']) ||
+  item?.session_type === 'networking';
+
+const normalizePresentationSlideItem = (row, index, slot) => ({
+  id: row.id || createId('presentation-slide'),
+  slot_id: slot.slot_id,
+  order: Number.isFinite(row.order) ? row.order : index + 1,
+  title: String(row.title || slot.title || ''),
+  description: String(row.description || slot.description || ''),
+  speaker: String(row.speaker || ''),
+  company: String(row.company || ''),
+  session_label: String(row.session_label || slot.session_label || ''),
+  start_time: String(row.start_time || ''),
+  end_time: String(row.end_time || ''),
+  session_type: String(row.session_type || slot.session_type || 'panel'),
+  presentation_hide_description: Boolean(
+    row.presentation_hide_description ?? row.presentationHideDescription ?? false
+  ),
+  presentation_panelist_font_scale: normalizePresentationPanelistFontScale(
+    row.presentation_panelist_font_scale ?? row.presentationPanelistFontScale
+  ),
+  panelists: normalizeAgendaPanelists(row.panelists),
+  active: row.active ?? true,
+});
+
+const buildLegacyPresentationSlidesFromAgenda = (agendaItems) => {
+  const orderedAgendaItems = (Array.isArray(agendaItems) ? agendaItems : [])
+    .filter((item) => item?.active !== false)
+    .sort((a, b) => (a?.order || 0) - (b?.order || 0));
+  const panelItems = orderedAgendaItems.filter((item) => isLegacyPanelPresentationAgendaItem(item));
+  const interactiveItems = orderedAgendaItems.filter((item) =>
+    isLegacyInteractivePresentationAgendaItem(item)
+  );
+  const networkingItem =
+    orderedAgendaItems.find((item) => isLegacyNetworkingPresentationAgendaItem(item)) || null;
+  const legacyBySlot = new Map([
+    ['panel-1', panelItems[0] || null],
+    ['kahoot-1', interactiveItems[0] || null],
+    ['panel-2', panelItems[1] || null],
+    ['kahoot-2', interactiveItems[1] || null],
+    ['networking', networkingItem],
+  ]);
+
+  return PRESENTATION_DECK_SLOTS.map((slot, index) =>
+    normalizePresentationSlideItem(
+      legacyBySlot.get(slot.slot_id) || createDefaultPresentationSlide(slot, index),
+      index,
+      slot
+    )
+  );
+};
+
+const normalizePresentationSlides = (value, legacyAgendaItems = []) => {
+  if (!Array.isArray(value) || !value.length) {
+    return buildLegacyPresentationSlidesFromAgenda(legacyAgendaItems);
+  }
+
+  const rowBySlot = new Map();
+  value.forEach((row, index) => {
+    if (!row || typeof row !== 'object') return;
+    const sourceSlotId =
+      normalizePresentationSlideSlotId(
+        row.slot_id ?? row.slotId ?? row.slide_key ?? row.slideKey ?? row.id
+      ) || PRESENTATION_DECK_SLOTS[index]?.slot_id;
+    if (!sourceSlotId || rowBySlot.has(sourceSlotId)) return;
+    rowBySlot.set(sourceSlotId, row);
+  });
+
+  if (!rowBySlot.size) {
+    return buildLegacyPresentationSlidesFromAgenda(legacyAgendaItems);
+  }
+
+  return PRESENTATION_DECK_SLOTS.map((slot, index) =>
+    normalizePresentationSlideItem(
+      rowBySlot.get(slot.slot_id) || createDefaultPresentationSlide(slot, index),
+      index,
+      slot
+    )
+  );
 };
 
 const normalizeAdminUpdates = (value) => {
@@ -710,6 +902,16 @@ export const normalizeSiteContent = (raw) => {
       ) || DEFAULT_EVENT_CONFIG.google_maps_directions_url;
   }
 
+  const rawAgendaItems = source.agendaItems ?? source.AgendaItem;
+  const normalizedAgendaItems = normalizeAgendaItems(rawAgendaItems);
+  const normalizedPresentationSlides = normalizePresentationSlides(
+    source.presentationSlides ??
+      source.presentation_slides ??
+      source.PresentationSlides ??
+      source.PresentationSlide,
+    Array.isArray(rawAgendaItems) ? rawAgendaItems : normalizedAgendaItems
+  );
+
   return {
     hero: {
       ...DEFAULT_HERO_CONFIG,
@@ -799,7 +1001,8 @@ export const normalizeSiteContent = (raw) => {
       ),
     },
     organizations: normalizeOrganizations(source.organizations ?? source.companies),
-    agendaItems: normalizeAgendaItems(source.agendaItems ?? source.AgendaItem),
+    agendaItems: normalizedAgendaItems,
+    presentationSlides: normalizedPresentationSlides,
     adminUpdates: normalizeAdminUpdates(source.adminUpdates ?? source.AdminUpdate),
     operations: normalizeOperationsConfig(source.operations),
   };

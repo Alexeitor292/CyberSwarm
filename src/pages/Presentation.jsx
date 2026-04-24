@@ -3,6 +3,7 @@ import { Clock3 } from 'lucide-react';
 import ParticleField from '../components/cyberswarm/ParticleField';
 import HUDOverlay from '../components/cyberswarm/HUDOverlay';
 import Hero from '../components/cyberswarm/Hero';
+import { PRESENTATION_DECK_SLOTS } from '../data/siteData';
 import { useSiteContent } from '../hooks/use-site-content';
 
 const PRESENTATION_CURSOR_IDLE_TIMEOUT_MS = 2500;
@@ -42,13 +43,23 @@ const hasKeyword = (item, keywords) =>
   keywords.some((keyword) => buildSearchText(item).includes(String(keyword).toLowerCase()));
 
 const isPanelItem = (item) => hasKeyword(item, ['panel']) || item?.session_type === 'panel';
-
-const isInteractiveItem = (item) =>
-  hasKeyword(item, ['interactive', 'kahoot', 'quiz', 'game']) ||
-  item?.session_type === 'interactive' ||
-  item?.session_type === 'kahoot';
-const isNetworkingItem = (item) =>
-  hasKeyword(item, ['network', 'networking', 'mixer']) || item?.session_type === 'networking';
+const normalizePresentationSlotId = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return null;
+  if (['panel-1', 'panel1', 'panel_1', 'slide-panel-1'].includes(normalized)) return 'panel-1';
+  if (['kahoot-1', 'kahoot1', 'kahoot_1', 'interactive-1', 'interactive1'].includes(normalized)) {
+    return 'kahoot-1';
+  }
+  if (['panel-2', 'panel2', 'panel_2', 'slide-panel-2'].includes(normalized)) return 'panel-2';
+  if (['kahoot-2', 'kahoot2', 'kahoot_2', 'interactive-2', 'interactive2'].includes(normalized)) {
+    return 'kahoot-2';
+  }
+  if (['networking', 'network', 'mixer', 'slide-networking'].includes(normalized)) return 'networking';
+  return null;
+};
+const PRESENTATION_SLOT_MAP = new Map(
+  PRESENTATION_DECK_SLOTS.map((slot) => [slot.slot_id, slot])
+);
 const clampPresentationPanelistFontScale = (value) => {
   const scale = Number(value);
   if (!Number.isFinite(scale)) return 120;
@@ -200,7 +211,7 @@ function IntroSlide({ data, editor }) {
   );
 }
 
-function StageSlide({ item, editor }) {
+function StageSlide({ item, editor, listKey = 'presentationSlides' }) {
   const stageLabel = asText(item?.session_label);
   const title = asText(item?.title);
   const description = asText(item?.description);
@@ -221,7 +232,7 @@ function StageSlide({ item, editor }) {
     agendaItemIndex >= 0 && editor && typeof editor.setListItemField === 'function';
   const setAgendaField = (key, value) => {
     if (!canEditAgendaItem) return;
-    editor.setListItemField('agendaItems', agendaItemIndex, key, value);
+    editor.setListItemField(listKey, agendaItemIndex, key, value);
   };
 
   return (
@@ -416,92 +427,69 @@ export default function Presentation({
   const [isCursorHidden, setIsCursorHidden] = useState(false);
   const [showSlideControls, setShowSlideControls] = useState(false);
 
-  const activeAgendaItems = useMemo(
+  const activePresentationSlides = useMemo(
     () =>
-      (data?.agendaItems || [])
+      (data?.presentationSlides || [])
         .map((item, index) => ({ ...item, __index: index }))
         .filter((item) => item.active !== false)
         .sort((a, b) => (a.order || 0) - (b.order || 0)),
-    [data?.agendaItems]
+    [data?.presentationSlides]
   );
 
-  const panelItems = useMemo(
-    () => activeAgendaItems.filter((item) => isPanelItem(item)),
-    [activeAgendaItems]
+  const presentationSlidesBySlot = useMemo(
+    () => {
+      const next = new Map();
+      activePresentationSlides.forEach((item) => {
+        const slotId =
+          normalizePresentationSlotId(item?.slot_id ?? item?.slotId) ||
+          normalizePresentationSlotId(item?.id);
+        if (!slotId || next.has(slotId)) return;
+        next.set(slotId, item);
+      });
+      return next;
+    },
+    [activePresentationSlides]
   );
-  const kahootItems = useMemo(
-    () => activeAgendaItems.filter((item) => isInteractiveItem(item)),
-    [activeAgendaItems]
-  );
-  const networkingItem = useMemo(
-    () => activeAgendaItems.find((item) => isNetworkingItem(item)) || null,
-    [activeAgendaItems]
-  );
+
   const createFallbackSlide = useCallback(
-    (type, label, title, description) => ({
-      id: `fallback-${type}`,
-      session_type: type,
-      session_label: label,
-      title,
-      description,
-      speaker: '',
-      company: '',
-      start_time: '',
-      end_time: '',
-      active: true,
-      presentation_panelist_font_scale: 120,
-      panelists:
-        type === 'panel'
-          ? [
-              { id: `${type}-fallback-1`, name: 'Panelist 1', role: '', company: '', bio: '' },
-              { id: `${type}-fallback-2`, name: 'Panelist 2', role: '', company: '', bio: '' },
-              { id: `${type}-fallback-3`, name: 'Panelist 3', role: '', company: '', bio: '' },
-            ]
-          : [],
-    }),
+    (slotId) => {
+      const slot = PRESENTATION_SLOT_MAP.get(slotId);
+      const sessionType = slot?.session_type || 'panel';
+
+      return {
+        id: `fallback-${slotId || sessionType}`,
+        slot_id: slotId || 'panel-1',
+        session_type: sessionType,
+        session_label: slot?.session_label || 'SESSION',
+        title: slot?.title || 'Session title',
+        description:
+          slot?.description || 'Add presentation slide details in Admin > Presentation Builder.',
+        speaker: '',
+        company: '',
+        start_time: '',
+        end_time: '',
+        active: true,
+        presentation_hide_description: false,
+        presentation_panelist_font_scale: 120,
+        panelists:
+          sessionType === 'panel'
+            ? [
+                { id: `${slotId}-fallback-1`, name: 'Panelist 1', role: '', company: '', bio: '' },
+                { id: `${slotId}-fallback-2`, name: 'Panelist 2', role: '', company: '', bio: '' },
+                { id: `${slotId}-fallback-3`, name: 'Panelist 3', role: '', company: '', bio: '' },
+              ]
+            : [],
+      };
+    },
     []
   );
 
-  const panelSlide1 =
-    panelItems[0] ||
-    createFallbackSlide(
-      'panel',
-      'Panel 1',
-      'Panel Discussion 1',
-      'Add a panel agenda item to populate this slide.'
-    );
-  const panelSlide2 =
-    panelItems[1] ||
-    createFallbackSlide(
-      'panel',
-      'Panel 2',
-      'Panel Discussion 2',
-      'Add a second panel agenda item to populate this slide.'
-    );
-  const kahootSlide1 =
-    kahootItems[0] ||
-    createFallbackSlide(
-      'kahoot',
-      'Kahoot 1',
-      'Kahoot Session 1',
-      'Add an interactive/kahoot agenda item to populate this slide.'
-    );
-  const kahootSlide2 =
-    kahootItems[1] ||
-    createFallbackSlide(
-      'kahoot',
-      'Kahoot 2',
-      'Kahoot Session 2',
-      'Add a second interactive/kahoot agenda item to populate this slide.'
-    );
+  const panelSlide1 = presentationSlidesBySlot.get('panel-1') || createFallbackSlide('panel-1');
+  const panelSlide2 = presentationSlidesBySlot.get('panel-2') || createFallbackSlide('panel-2');
+  const kahootSlide1 = presentationSlidesBySlot.get('kahoot-1') || createFallbackSlide('kahoot-1');
+  const kahootSlide2 = presentationSlidesBySlot.get('kahoot-2') || createFallbackSlide('kahoot-2');
   const networkingSlide =
-    networkingItem ||
-    createFallbackSlide(
-      'networking',
-      'Networking',
-      'Networking Session',
-      'Add a networking agenda item to populate this slide.'
-    );
+    presentationSlidesBySlot.get('networking') || createFallbackSlide('networking');
 
   const slides = useMemo(
     () => [
@@ -513,27 +501,27 @@ export default function Presentation({
       {
         id: `slide-panel-1-${panelSlide1.id || 'slot'}`,
         label: 'Panel 1',
-        content: <StageSlide item={panelSlide1} editor={editor} />,
+        content: <StageSlide item={panelSlide1} editor={editor} listKey="presentationSlides" />,
       },
       {
         id: `slide-kahoot-1-${kahootSlide1.id || 'slot'}`,
         label: 'Kahoot 1',
-        content: <StageSlide item={kahootSlide1} editor={editor} />,
+        content: <StageSlide item={kahootSlide1} editor={editor} listKey="presentationSlides" />,
       },
       {
         id: `slide-panel-2-${panelSlide2.id || 'slot'}`,
         label: 'Panel 2',
-        content: <StageSlide item={panelSlide2} editor={editor} />,
+        content: <StageSlide item={panelSlide2} editor={editor} listKey="presentationSlides" />,
       },
       {
         id: `slide-kahoot-2-${kahootSlide2.id || 'slot'}`,
         label: 'Kahoot 2',
-        content: <StageSlide item={kahootSlide2} editor={editor} />,
+        content: <StageSlide item={kahootSlide2} editor={editor} listKey="presentationSlides" />,
       },
       {
         id: `slide-networking-${networkingSlide.id || 'slot'}`,
         label: 'Networking',
-        content: <StageSlide item={networkingSlide} editor={editor} />,
+        content: <StageSlide item={networkingSlide} editor={editor} listKey="presentationSlides" />,
       },
     ],
     [

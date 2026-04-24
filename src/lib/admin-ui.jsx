@@ -67,6 +67,7 @@ import {
   getUniqueStatuses,
   normalizeExternalUrl,
 } from '@/lib/form-operations';
+import { PRESENTATION_DECK_SLOTS } from '@/data/siteData';
 
 const ADMIN_USER_KEY = 'cyberswarm_admin_user';
 const APP_USER_KEY = 'cyberswarm_user';
@@ -307,34 +308,20 @@ const clampPresentationPanelistFontScale = (value) => {
   return Math.min(220, Math.max(80, Math.round(scale)));
 };
 
-const buildPresentationAgendaSearchText = (item) =>
-  [
-    item?.session_label,
-    item?.title,
-    item?.description,
-    item?.speaker,
-    item?.company,
-    item?.session_type,
-  ]
-    .map((value) => String(value || '').trim().toLowerCase())
-    .join(' ');
-
-const hasPresentationAgendaKeyword = (item, keywords) =>
-  keywords.some((keyword) =>
-    buildPresentationAgendaSearchText(item).includes(String(keyword).toLowerCase())
-  );
-
-const isPresentationPanelAgendaItem = (item) =>
-  hasPresentationAgendaKeyword(item, ['panel']) || item?.session_type === 'panel';
-
-const isPresentationInteractiveAgendaItem = (item) =>
-  hasPresentationAgendaKeyword(item, ['interactive', 'kahoot', 'quiz', 'game']) ||
-  item?.session_type === 'interactive' ||
-  item?.session_type === 'kahoot';
-
-const isPresentationNetworkingAgendaItem = (item) =>
-  hasPresentationAgendaKeyword(item, ['network', 'networking', 'mixer']) ||
-  item?.session_type === 'networking';
+const normalizePresentationSlideSlotId = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return null;
+  if (['panel-1', 'panel1', 'panel_1', 'slide-panel-1'].includes(normalized)) return 'panel-1';
+  if (['kahoot-1', 'kahoot1', 'kahoot_1', 'interactive-1', 'interactive1'].includes(normalized)) {
+    return 'kahoot-1';
+  }
+  if (['panel-2', 'panel2', 'panel_2', 'slide-panel-2'].includes(normalized)) return 'panel-2';
+  if (['kahoot-2', 'kahoot2', 'kahoot_2', 'interactive-2', 'interactive2'].includes(normalized)) {
+    return 'kahoot-2';
+  }
+  if (['networking', 'network', 'mixer', 'slide-networking'].includes(normalized)) return 'networking';
+  return null;
+};
 
 const collectCustomColorFrameDowngrades = (beforeContent, afterContent) => {
   const beforeSponsors = Array.isArray(beforeContent?.sponsors) ? beforeContent.sponsors : [];
@@ -2791,8 +2778,6 @@ export default function AdminUI() {
                 start_time: '',
                 end_time: '',
                 session_type: 'panel',
-                presentation_hide_description: false,
-                presentation_panelist_font_scale: 120,
                 active: true,
               },
             ],
@@ -2958,7 +2943,7 @@ export default function AdminUI() {
         case 'agenda':
           return (
             <div className="space-y-3">
-              <button type="button" onClick={() => updateDraft((prev) => ({ ...prev, agendaItems: [...(prev.agendaItems || []), { id: createId('agenda'), order: (prev.agendaItems || []).length + 1, title: '', description: '', speaker: '', company: '', session_label: '', start_time: '', end_time: '', session_type: 'panel', presentation_hide_description: false, presentation_panelist_font_scale: 120, active: true }] }))} className={outlineButtonClasses}>Add Agenda Block</button>
+              <button type="button" onClick={() => updateDraft((prev) => ({ ...prev, agendaItems: [...(prev.agendaItems || []), { id: createId('agenda'), order: (prev.agendaItems || []).length + 1, title: '', description: '', speaker: '', company: '', session_label: '', start_time: '', end_time: '', session_type: 'panel', active: true }] }))} className={outlineButtonClasses}>Add Agenda Block</button>
               <div className="max-h-[560px] space-y-3 overflow-y-auto pr-1">
                 {draft.agendaItems?.length ? draft.agendaItems.map((item, index) => (
                   <div key={item.id || index} className={itemCardClasses}>
@@ -3197,18 +3182,18 @@ export default function AdminUI() {
       );
     };
 
-    const orderedPresentationAgendaItems = (draft?.agendaItems || [])
+    const orderedPresentationSlideItems = (draft?.presentationSlides || [])
       .map((item, index) => ({ ...item, __index: index }))
       .filter((item) => item.active !== false)
       .sort((a, b) => (a.order || 0) - (b.order || 0));
-    const panelPresentationItems = orderedPresentationAgendaItems.filter((item) =>
-      isPresentationPanelAgendaItem(item)
-    );
-    const kahootPresentationItems = orderedPresentationAgendaItems.filter((item) =>
-      isPresentationInteractiveAgendaItem(item)
-    );
-    const networkingPresentationItem =
-      orderedPresentationAgendaItems.find((item) => isPresentationNetworkingAgendaItem(item)) || null;
+    const presentationSlideBySlot = new Map();
+    orderedPresentationSlideItems.forEach((item) => {
+      const slotId =
+        normalizePresentationSlideSlotId(item?.slot_id ?? item?.slotId) ||
+        normalizePresentationSlideSlotId(item?.id);
+      if (!slotId || presentationSlideBySlot.has(slotId)) return;
+      presentationSlideBySlot.set(slotId, item);
+    });
 
     const presentationToolSlides = [
       {
@@ -3216,43 +3201,15 @@ export default function AdminUI() {
         title: 'Intro & Marquee',
         shortLabel: 'Intro',
         type: 'intro',
-        agendaItem: null,
+        slideItem: null,
       },
-      {
-        id: 'panel-1',
-        title: 'Panel 1',
-        shortLabel: 'Panel 1',
-        type: 'agenda',
-        agendaItem: panelPresentationItems[0] || null,
-      },
-      {
-        id: 'kahoot-1',
-        title: 'Kahoot 1',
-        shortLabel: 'Kahoot 1',
-        type: 'agenda',
-        agendaItem: kahootPresentationItems[0] || null,
-      },
-      {
-        id: 'panel-2',
-        title: 'Panel 2',
-        shortLabel: 'Panel 2',
-        type: 'agenda',
-        agendaItem: panelPresentationItems[1] || null,
-      },
-      {
-        id: 'kahoot-2',
-        title: 'Kahoot 2',
-        shortLabel: 'Kahoot 2',
-        type: 'agenda',
-        agendaItem: kahootPresentationItems[1] || null,
-      },
-      {
-        id: 'networking',
-        title: 'Networking',
-        shortLabel: 'Networking',
-        type: 'agenda',
-        agendaItem: networkingPresentationItem,
-      },
+      ...PRESENTATION_DECK_SLOTS.map((slot) => ({
+        id: slot.slot_id,
+        title: slot.short_label,
+        shortLabel: slot.short_label,
+        type: 'slide',
+        slideItem: presentationSlideBySlot.get(slot.slot_id) || null,
+      })),
     ];
 
     const clampedPresentationSlideIndex = Math.max(
@@ -3261,14 +3218,14 @@ export default function AdminUI() {
     );
     const activePresentationToolSlide =
       presentationToolSlides[clampedPresentationSlideIndex] || presentationToolSlides[0];
-    const activePresentationAgendaItem = activePresentationToolSlide?.agendaItem || null;
-    const activePresentationAgendaDataIndex = Number.isInteger(activePresentationAgendaItem?.__index)
-      ? activePresentationAgendaItem.__index
+    const activePresentationSlideItem = activePresentationToolSlide?.slideItem || null;
+    const activePresentationSlideDataIndex = Number.isInteger(activePresentationSlideItem?.__index)
+      ? activePresentationSlideItem.__index
       : -1;
 
-    const setActivePresentationAgendaField = (key, value) => {
-      if (activePresentationAgendaDataIndex < 0) return;
-      setListItemField('agendaItems', activePresentationAgendaDataIndex, key, value);
+    const setActivePresentationSlideField = (key, value) => {
+      if (activePresentationSlideDataIndex < 0) return;
+      setListItemField('presentationSlides', activePresentationSlideDataIndex, key, value);
     };
 
     const ActivePresentationToolIcon =
@@ -3277,14 +3234,14 @@ export default function AdminUI() {
       activePresentationToolSlide?.id === 'panel-1' ||
       activePresentationToolSlide?.id === 'panel-2';
     const buildPresentationToolPanelists = () => {
-      const sourceRows = Array.isArray(activePresentationAgendaItem?.panelists)
-        ? activePresentationAgendaItem.panelists.filter((row) => row?.active !== false)
+      const sourceRows = Array.isArray(activePresentationSlideItem?.panelists)
+        ? activePresentationSlideItem.panelists.filter((row) => row?.active !== false)
         : [];
 
       return Array.from({ length: 3 }, (_unused, index) => {
         const source = sourceRows[index] && typeof sourceRows[index] === 'object' ? sourceRows[index] : {};
         return {
-          id: String(source.id || `presentation-panelist-${activePresentationAgendaDataIndex}-${index + 1}`),
+          id: String(source.id || `presentation-panelist-${activePresentationSlideDataIndex}-${index + 1}`),
           name: String(source.name || ''),
           role: String(source.role || ''),
           company: String(source.company || ''),
@@ -3295,7 +3252,7 @@ export default function AdminUI() {
     };
     const editablePresentationPanelists = buildPresentationToolPanelists();
     const setPresentationPanelistField = (panelistIndex, key, value) => {
-      if (activePresentationAgendaDataIndex < 0) return;
+      if (activePresentationSlideDataIndex < 0) return;
       if (!Number.isInteger(panelistIndex) || panelistIndex < 0 || panelistIndex > 2) return;
 
       const nextPanelists = buildPresentationToolPanelists();
@@ -3304,7 +3261,7 @@ export default function AdminUI() {
         [key]: value,
         active: true,
       };
-      setListItemField('agendaItems', activePresentationAgendaDataIndex, 'panelists', nextPanelists);
+      setListItemField('presentationSlides', activePresentationSlideDataIndex, 'panelists', nextPanelists);
     };
 
     const renderIntroControls = () => (
@@ -3560,17 +3517,17 @@ export default function AdminUI() {
     );
 
     const renderAgendaSlideControls = () => {
-      if (!activePresentationAgendaItem) {
+      if (!activePresentationSlideItem) {
         return (
           <EmptyState
-            title={`No ${activePresentationToolSlide.shortLabel.toLowerCase()} agenda item`}
-            description="This presentation page maps to active agenda blocks. Add or activate a matching agenda item to edit it here."
+            title={`No ${activePresentationToolSlide.shortLabel.toLowerCase()} slide`}
+            description="This control panel edits dedicated presentation slides. If this appears, refresh content or recreate the slide set."
           />
         );
       }
-      const hideSessionDescription = Boolean(activePresentationAgendaItem.presentation_hide_description);
+      const hideSessionDescription = Boolean(activePresentationSlideItem.presentation_hide_description);
       const panelCardTextScale = clampPresentationPanelistFontScale(
-        activePresentationAgendaItem.presentation_panelist_font_scale
+        activePresentationSlideItem.presentation_panelist_font_scale
       );
 
       return (
@@ -3578,14 +3535,14 @@ export default function AdminUI() {
           <div className="grid gap-3 sm:grid-cols-2">
             <input
               className={fieldClasses}
-              value={activePresentationAgendaItem.session_label || ''}
-              onChange={(event) => setActivePresentationAgendaField('session_label', event.target.value)}
+              value={activePresentationSlideItem.session_label || ''}
+              onChange={(event) => setActivePresentationSlideField('session_label', event.target.value)}
               placeholder="Session label"
             />
             <select
               className={fieldClasses}
-              value={activePresentationAgendaItem.session_type || 'panel'}
-              onChange={(event) => setActivePresentationAgendaField('session_type', event.target.value)}
+              value={activePresentationSlideItem.session_type || 'panel'}
+              onChange={(event) => setActivePresentationSlideField('session_type', event.target.value)}
             >
               <option value="panel">panel</option>
               <option value="interactive">interactive</option>
@@ -3602,7 +3559,7 @@ export default function AdminUI() {
               type="checkbox"
               checked={hideSessionDescription}
               onChange={(event) =>
-                setActivePresentationAgendaField(
+                setActivePresentationSlideField(
                   'presentation_hide_description',
                   event.target.checked
                 )
@@ -3613,29 +3570,29 @@ export default function AdminUI() {
 
           <input
             className={fieldClasses}
-            value={activePresentationAgendaItem.title || ''}
-            onChange={(event) => setActivePresentationAgendaField('title', event.target.value)}
+            value={activePresentationSlideItem.title || ''}
+            onChange={(event) => setActivePresentationSlideField('title', event.target.value)}
             placeholder="Session title"
           />
 
           <textarea
             className={`${fieldClasses} min-h-28`}
-            value={activePresentationAgendaItem.description || ''}
-            onChange={(event) => setActivePresentationAgendaField('description', event.target.value)}
+            value={activePresentationSlideItem.description || ''}
+            onChange={(event) => setActivePresentationSlideField('description', event.target.value)}
             placeholder="Session description"
           />
 
           <div className="grid gap-3 sm:grid-cols-2">
             <input
               className={fieldClasses}
-              value={activePresentationAgendaItem.speaker || ''}
-              onChange={(event) => setActivePresentationAgendaField('speaker', event.target.value)}
+              value={activePresentationSlideItem.speaker || ''}
+              onChange={(event) => setActivePresentationSlideField('speaker', event.target.value)}
               placeholder="Speaker"
             />
             <input
               className={fieldClasses}
-              value={activePresentationAgendaItem.company || ''}
-              onChange={(event) => setActivePresentationAgendaField('company', event.target.value)}
+              value={activePresentationSlideItem.company || ''}
+              onChange={(event) => setActivePresentationSlideField('company', event.target.value)}
               placeholder="Company"
             />
           </div>
@@ -3643,14 +3600,14 @@ export default function AdminUI() {
           <div className="grid gap-3 sm:grid-cols-2">
             <input
               className={fieldClasses}
-              value={activePresentationAgendaItem.start_time || ''}
-              onChange={(event) => setActivePresentationAgendaField('start_time', event.target.value)}
+              value={activePresentationSlideItem.start_time || ''}
+              onChange={(event) => setActivePresentationSlideField('start_time', event.target.value)}
               placeholder="Start time"
             />
             <input
               className={fieldClasses}
-              value={activePresentationAgendaItem.end_time || ''}
-              onChange={(event) => setActivePresentationAgendaField('end_time', event.target.value)}
+              value={activePresentationSlideItem.end_time || ''}
+              onChange={(event) => setActivePresentationSlideField('end_time', event.target.value)}
               placeholder="End time"
             />
           </div>
@@ -3669,7 +3626,7 @@ export default function AdminUI() {
                   className="w-full accent-primary"
                   value={panelCardTextScale}
                   onChange={(event) =>
-                    setActivePresentationAgendaField(
+                    setActivePresentationSlideField(
                       'presentation_panelist_font_scale',
                       clampPresentationPanelistFontScale(Number(event.target.value))
                     )
@@ -3683,7 +3640,7 @@ export default function AdminUI() {
                     className={`${fieldClasses} w-32`}
                     value={panelCardTextScale}
                     onChange={(event) =>
-                      setActivePresentationAgendaField(
+                      setActivePresentationSlideField(
                         'presentation_panelist_font_scale',
                         clampPresentationPanelistFontScale(Number(event.target.value))
                       )
@@ -3693,7 +3650,7 @@ export default function AdminUI() {
                     type="button"
                     className={outlineButtonClasses}
                     onClick={() =>
-                      setActivePresentationAgendaField('presentation_panelist_font_scale', 120)
+                      setActivePresentationSlideField('presentation_panelist_font_scale', 120)
                     }
                   >
                     Reset To 120%
@@ -3758,7 +3715,7 @@ export default function AdminUI() {
           ) : null}
 
           <p className="font-mono text-xs leading-6 text-muted-foreground/75">
-            These fields map directly to the matching agenda block used by this presentation page.
+            These fields are fully separate from the public agenda and only affect /presentation.
           </p>
         </div>
       );
@@ -3800,8 +3757,8 @@ export default function AdminUI() {
                   Presentation Notes
                 </p>
                 <p className="font-mono text-xs leading-6 text-muted-foreground/75">
-                  This tab previews a fixed 6-slide deck. Panel/Kahoot/Networking slides are sourced from active agenda
-                  items in this order: first panel, first kahoot, second panel, second kahoot, first networking.
+                  This tab edits a dedicated fixed 6-slide deck. Changes here update only /presentation and do not
+                  modify the public agenda timeline on cyberswarmsac.com.
                 </p>
               </div>
 
@@ -3894,7 +3851,7 @@ export default function AdminUI() {
         case 'agenda':
           return (
             <div className="space-y-3">
-              <button type="button" onClick={() => updateDraft((prev) => ({ ...prev, agendaItems: [...(prev.agendaItems || []), { id: createId('agenda'), order: (prev.agendaItems || []).length + 1, title: '', description: '', speaker: '', company: '', session_label: '', start_time: '', end_time: '', session_type: 'panel', presentation_hide_description: false, presentation_panelist_font_scale: 120, active: true }] }))} className={outlineButtonClasses}>Add Agenda Block</button>
+              <button type="button" onClick={() => updateDraft((prev) => ({ ...prev, agendaItems: [...(prev.agendaItems || []), { id: createId('agenda'), order: (prev.agendaItems || []).length + 1, title: '', description: '', speaker: '', company: '', session_label: '', start_time: '', end_time: '', session_type: 'panel', active: true }] }))} className={outlineButtonClasses}>Add Agenda Block</button>
               <div className="max-h-[560px] space-y-3 overflow-y-auto pr-1">
                 {draft.agendaItems?.length ? draft.agendaItems.map((item, index) => (
                   <div key={item.id || index} className={itemCardClasses}>
