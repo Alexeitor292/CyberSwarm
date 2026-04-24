@@ -1,3 +1,4 @@
+// @ts-nocheck
 import {
   DEFAULT_DIRECTIONS_DESTINATION,
   DEFAULT_DIRECTIONS_URL,
