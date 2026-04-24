@@ -42,10 +42,19 @@ const buildSearchText = (item) =>
 const hasKeyword = (item, keywords) =>
   keywords.some((keyword) => buildSearchText(item).includes(String(keyword).toLowerCase()));
 
-const isPanelItem = (item) => hasKeyword(item, ['panel']) || item?.session_type === 'panel';
-const isInteractiveItem = (item) =>
-  hasKeyword(item, ['interactive', 'kahoot', 'quiz', 'game', 'step']) ||
-  ['interactive', 'kahoot', 'workshop'].includes(String(item?.session_type || '').toLowerCase());
+const getSessionType = (item) => String(item?.session_type || '').trim().toLowerCase();
+
+const isPanelItem = (item) => {
+  const sessionType = getSessionType(item);
+  if (sessionType) return sessionType === 'panel';
+  return hasKeyword(item, ['panel']);
+};
+
+const isInteractiveItem = (item) => {
+  const sessionType = getSessionType(item);
+  if (sessionType) return ['interactive', 'kahoot', 'workshop'].includes(sessionType);
+  return hasKeyword(item, ['interactive', 'kahoot', 'quiz', 'game', 'step']);
+};
 const normalizePresentationSlotId = (value) => {
   const normalized = String(value || '').trim().toLowerCase();
   if (!normalized) return null;

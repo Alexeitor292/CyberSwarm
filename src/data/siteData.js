@@ -666,17 +666,26 @@ const hasPresentationLegacyKeyword = (item, keywords) =>
     buildPresentationLegacySearchText(item).includes(String(keyword).toLowerCase())
   );
 
-const isLegacyPanelPresentationAgendaItem = (item) =>
-  hasPresentationLegacyKeyword(item, ['panel']) || item?.session_type === 'panel';
+const getLegacyPresentationSessionType = (item) =>
+  String(item?.session_type || '').trim().toLowerCase();
 
-const isLegacyInteractivePresentationAgendaItem = (item) =>
-  hasPresentationLegacyKeyword(item, ['interactive', 'kahoot', 'quiz', 'game']) ||
-  item?.session_type === 'interactive' ||
-  item?.session_type === 'kahoot';
+const isLegacyPanelPresentationAgendaItem = (item) => {
+  const sessionType = getLegacyPresentationSessionType(item);
+  if (sessionType) return sessionType === 'panel';
+  return hasPresentationLegacyKeyword(item, ['panel']);
+};
 
-const isLegacyNetworkingPresentationAgendaItem = (item) =>
-  hasPresentationLegacyKeyword(item, ['network', 'networking', 'mixer']) ||
-  item?.session_type === 'networking';
+const isLegacyInteractivePresentationAgendaItem = (item) => {
+  const sessionType = getLegacyPresentationSessionType(item);
+  if (sessionType) return ['interactive', 'kahoot', 'workshop'].includes(sessionType);
+  return hasPresentationLegacyKeyword(item, ['interactive', 'kahoot', 'quiz', 'game']);
+};
+
+const isLegacyNetworkingPresentationAgendaItem = (item) => {
+  const sessionType = getLegacyPresentationSessionType(item);
+  if (sessionType) return sessionType === 'networking';
+  return hasPresentationLegacyKeyword(item, ['network', 'networking', 'mixer']);
+};
 
 const normalizePresentationSlideItem = (row, index, slot) => ({
   id: row.id || createId('presentation-slide'),
