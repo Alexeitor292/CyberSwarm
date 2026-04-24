@@ -44,6 +44,7 @@ import AdminUpdatesSection from '@/components/cyberswarm/AdminUpdatesSection';
 import EventInfo from '@/components/cyberswarm/EventInfo';
 import RegistrationForm from '@/components/cyberswarm/RegistrationForm';
 import Footer from '@/components/cyberswarm/Footer';
+import Presentation from '@/pages/Presentation';
 import SponsorLogoViewport, {
   clampSponsorLogoOffset,
   clampSponsorLogoScale,
@@ -3162,8 +3163,8 @@ export default function AdminUI() {
       <div className="space-y-6">
         <Section
           eyebrow="Presentation Builder"
-          title="Projector Intro Canvas"
-          description="Edit the /presentation intro slide with click-to-edit text plus per-logo marquee sizing and spacing."
+          title="Projector Deck Canvas"
+          description="Edit the fixed 6-slide /presentation deck: Intro, Panel 1, Kahoot 1, Panel 2, Kahoot 2, Networking."
         >
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.82fr)]">
             <div className="min-w-0 space-y-4">
@@ -3179,19 +3180,8 @@ export default function AdminUI() {
                   </p>
                 </div>
 
-                <div className="h-[760px] overflow-auto bg-background">
-                  <div className="relative min-h-screen w-full overflow-x-hidden bg-background text-foreground">
-                    <ParticleField preview reactToMouse={false} />
-                    <HUDOverlay preview />
-                    <Hero
-                      content={draft}
-                      editor={inlineEditor}
-                      showCountdown={false}
-                      showSubtitle={false}
-                      showCta={false}
-                      showSponsorMarquee
-                    />
-                  </div>
+                <div className="h-[760px] overflow-hidden bg-background">
+                  <Presentation content={draft} editor={inlineEditor} preview />
                 </div>
               </div>
 
@@ -3200,8 +3190,8 @@ export default function AdminUI() {
                   Presentation Notes
                 </p>
                 <p className="font-mono text-xs leading-6 text-muted-foreground/75">
-                  This tab controls the /presentation intro slide: title copy and sponsor marquee sizing and spacing.
-                  The Sponsors page still controls sponsor card framing for the public homepage.
+                  This tab previews a fixed 6-slide deck. Panel/Kahoot/Networking slides are sourced from active agenda
+                  items in this order: first panel, first kahoot, second panel, second kahoot, first networking.
                 </p>
               </div>
             </div>

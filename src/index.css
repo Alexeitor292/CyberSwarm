@@ -126,6 +126,17 @@
   background-clip: padding-box;
 }
 
+/* Hidden scrollbar utility for full-screen presentation viewport */
+.presentation-scroll-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.presentation-scroll-hidden::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
 /* Glow effects */
 .glow-cyan {
   text-shadow: 0 0 20px hsl(var(--primary) / 0.5), 0 0 40px hsl(var(--primary) / 0.2);

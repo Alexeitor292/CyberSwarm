@@ -108,6 +108,7 @@ export default function Hero({
       .filter((item) => item.active !== false && (item.logo_url || item.name))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [data?.sponsors]);
+  const isEditorPreview = Boolean(editor);
   const handleJumpToAgenda = useCallback((event) => {
     event.preventDefault();
 
@@ -232,10 +233,12 @@ export default function Hero({
     { label: 'Seconds', value: countdown.secs },
   ];
   const marqueeCopyCount = useMemo(() => {
+    if (isEditorPreview) return 1;
     if (marqueeLoopWidth <= 0 || marqueeViewportWidth <= 0) return 2;
     return Math.max(2, Math.ceil(marqueeViewportWidth / marqueeLoopWidth) + 2);
-  }, [marqueeLoopWidth, marqueeViewportWidth]);
+  }, [isEditorPreview, marqueeLoopWidth, marqueeViewportWidth]);
   const marqueeCanAnimate =
+    !isEditorPreview &&
     !prefersReducedMotion &&
     sponsorMarqueeItems.length > 0 &&
     marqueeLoopWidth > 0 &&
@@ -303,6 +306,26 @@ export default function Hero({
       </li>
     );
   };
+  const marqueeTrack = (
+    <>
+      <ul ref={marqueeLoopRef} className="flex h-full w-max items-center gap-0 px-8">
+        {sponsorMarqueeItems.map((sponsor, index) =>
+          renderSponsorMarqueeItem(sponsor, `loop-a-${index}`)
+        )}
+      </ul>
+      {Array.from({ length: marqueeCopyCount - 1 }, (_unused, copyIndex) => (
+        <ul
+          key={`marquee-copy-${copyIndex}`}
+          aria-hidden="true"
+          className="flex h-full w-max items-center gap-0 px-8"
+        >
+          {sponsorMarqueeItems.map((sponsor, index) =>
+            renderSponsorMarqueeItem(sponsor, `loop-${copyIndex + 1}-${index}`)
+          )}
+        </ul>
+      ))}
+    </>
+  );
 
   return (
     <section
@@ -322,7 +345,7 @@ export default function Hero({
             ? { duration: 0 }
             : { duration: 1.2, ease: [0.22, 1, 0.36, 1] }
         }
-        className="relative z-10 text-center max-w-5xl"
+        className="relative z-10 w-full max-w-5xl text-center"
       >
         <motion.p
           initial={prefersReducedMotion ? false : { opacity: 0 }}
@@ -414,8 +437,12 @@ export default function Hero({
           >
             <div
               ref={marqueeViewportRef}
-              className="relative overflow-hidden rounded-full border border-primary/30 bg-[rgba(237,239,242,0.93)] shadow-[0_0_32px_hsl(var(--primary)/0.1)]"
-              style={{ height: `${PRESENTATION_MARQUEE_BAND_HEIGHT_PX}px` }}
+              className="relative isolate w-full overflow-hidden rounded-full border border-primary/30 bg-[rgba(237,239,242,0.93)] shadow-[0_0_32px_hsl(var(--primary)/0.1)]"
+              style={{
+                height: `${PRESENTATION_MARQUEE_BAND_HEIGHT_PX}px`,
+                clipPath: 'inset(0 round 9999px)',
+                contain: 'paint',
+              }}
             >
               <div
                 className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[rgba(237,239,242,0.93)] to-transparent"
@@ -425,32 +452,21 @@ export default function Hero({
                 className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[rgba(237,239,242,0.93)] to-transparent"
                 aria-hidden="true"
               />
-              <motion.div
-                className="flex h-full w-max"
-                animate={marqueeCanAnimate ? { x: [0, -marqueeLoopWidth] } : { x: 0 }}
-                transition={
-                  marqueeCanAnimate
-                    ? { duration: presentationMarqueeDuration, ease: 'linear', repeat: Infinity }
-                    : { duration: 0 }
-                }
-              >
-                <ul ref={marqueeLoopRef} className="flex h-full w-max items-center gap-0 px-8">
-                  {sponsorMarqueeItems.map((sponsor, index) =>
-                    renderSponsorMarqueeItem(sponsor, `loop-a-${index}`)
-                  )}
-                </ul>
-                {Array.from({ length: marqueeCopyCount - 1 }, (_unused, copyIndex) => (
-                  <ul
-                    key={`marquee-copy-${copyIndex}`}
-                    aria-hidden="true"
-                    className="flex h-full w-max items-center gap-0 px-8"
-                  >
-                    {sponsorMarqueeItems.map((sponsor, index) =>
-                      renderSponsorMarqueeItem(sponsor, `loop-${copyIndex + 1}-${index}`)
-                    )}
-                  </ul>
-                ))}
-              </motion.div>
+              {isEditorPreview ? (
+                <div className="flex h-full w-max will-change-auto">{marqueeTrack}</div>
+              ) : (
+                <motion.div
+                  className="flex h-full w-max will-change-transform"
+                  animate={marqueeCanAnimate ? { x: [0, -marqueeLoopWidth] } : { x: 0 }}
+                  transition={
+                    marqueeCanAnimate
+                      ? { duration: presentationMarqueeDuration, ease: 'linear', repeat: Infinity }
+                      : { duration: 0 }
+                  }
+                >
+                  {marqueeTrack}
+                </motion.div>
+              )}
             </div>
           </motion.div>
         ) : null}

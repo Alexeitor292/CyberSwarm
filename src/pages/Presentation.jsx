@@ -5,6 +5,19 @@ import HUDOverlay from '../components/cyberswarm/HUDOverlay';
 import Hero from '../components/cyberswarm/Hero';
 import { useSiteContent } from '../hooks/use-site-content';
 
+const PRESENTATION_CURSOR_IDLE_TIMEOUT_MS = 2500;
+const PRESENTATION_CURSOR_NAV_KEYS = new Set([
+  'ArrowUp',
+  'ArrowDown',
+  'PageUp',
+  'PageDown',
+  'Home',
+  'End',
+  ' ',
+  'c',
+  'C',
+]);
+
 const isInteractiveElement = (target) => {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName.toLowerCase();
@@ -21,7 +34,7 @@ const isInteractiveElement = (target) => {
 const asText = (value) => String(value || '').trim();
 
 const buildSearchText = (item) =>
-  [item?.session_label, item?.title, item?.session_type]
+  [item?.session_label, item?.title, item?.description, item?.speaker, item?.company, item?.session_type]
     .map((value) => asText(value).toLowerCase())
     .join(' ');
 
@@ -30,7 +43,12 @@ const hasKeyword = (item, keywords) =>
 
 const isPanelItem = (item) => hasKeyword(item, ['panel']) || item?.session_type === 'panel';
 
-const isInteractiveItem = (item) => hasKeyword(item, ['interactive', 'kahoot']);
+const isInteractiveItem = (item) =>
+  hasKeyword(item, ['interactive', 'kahoot', 'quiz', 'game']) ||
+  item?.session_type === 'interactive' ||
+  item?.session_type === 'kahoot';
+const isNetworkingItem = (item) =>
+  hasKeyword(item, ['network', 'networking', 'mixer']) || item?.session_type === 'networking';
 
 const formatTimeRange = (item) =>
   [asText(item?.start_time), asText(item?.end_time)].filter(Boolean).join(' - ');
@@ -41,7 +59,7 @@ const formatSpeakerLine = (item) =>
 const splitPanelField = (value) =>
   String(value || '')
     .split(/\r?\n|[|,;]/)
-    .map((item) => item.trim())
+    .map((entry) => entry.trim())
     .filter(Boolean);
 
 const getPanelists = (item) => {
@@ -57,9 +75,7 @@ const getPanelists = (item) => {
         .filter((panelist) => panelist.name || panelist.role || panelist.company || panelist.bio)
     : [];
 
-  if (structuredPanelists.length) {
-    return structuredPanelists;
-  }
+  if (structuredPanelists.length) return structuredPanelists;
 
   const speakerNames = splitPanelField(item?.speaker);
   const companies = splitPanelField(item?.company);
@@ -82,9 +98,7 @@ const getPanelists = (item) => {
     id: `fallback-panelist-${item?.id || index}-${index}`,
     name: speakerNames[index] || speakerNames[0] || 'Panelist',
     role: '',
-    company:
-      companies[index] ||
-      (companies.length === 1 ? companies[0] : ''),
+    company: companies[index] || (companies.length === 1 ? companies[0] : ''),
     bio: '',
   }));
 };
@@ -142,16 +156,19 @@ function PanelistCard({ panelist }) {
   );
 }
 
-function IntroSlide({ data }) {
+function IntroSlide({ data, editor }) {
   return (
     <div className="relative min-h-screen">
       <Hero
         content={data}
+        editor={editor}
         showCountdown={false}
+        showSubtitle={false}
         showCta={false}
         showSponsorMarquee
         showAgendaJump={false}
       />
+      <HUDOverlay preview />
 
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
         <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-background via-background/70 to-transparent" />
@@ -160,21 +177,24 @@ function IntroSlide({ data }) {
   );
 }
 
-function StageSlide({ item }) {
-  const speakerLine = formatSpeakerLine(item);
-  const timeRange = formatTimeRange(item);
+function StageSlide({ item, editor }) {
   const stageLabel = asText(item?.session_label);
   const title = asText(item?.title);
   const description = asText(item?.description);
+  const timeRange = formatTimeRange(item);
+  const speakerLine = formatSpeakerLine(item);
   const showPanelists = isPanelItem(item);
   const panelists = showPanelists ? getPanelists(item) : [];
   const useSplitHeader = showPanelists && Boolean(description);
-  const panelGridColumnsClassName =
-    panelists.length >= 3
-      ? 'md:grid-cols-2 lg:grid-cols-3'
-      : panelists.length === 2
-        ? 'md:grid-cols-2'
-        : 'md:grid-cols-1';
+  const panelGridColumnsClassName = 'md:grid-cols-2 lg:grid-cols-3';
+
+  const agendaItemIndex = Number.isInteger(item?.__index) ? item.__index : -1;
+  const canEditAgendaItem =
+    agendaItemIndex >= 0 && editor && typeof editor.setListItemField === 'function';
+  const setAgendaField = (key, value) => {
+    if (!canEditAgendaItem) return;
+    editor.setListItemField('agendaItems', agendaItemIndex, key, value);
+  };
 
   return (
     <section className="relative h-screen px-4 py-4 sm:px-5 sm:py-5 xl:px-6 xl:py-6">
@@ -188,14 +208,47 @@ function StageSlide({ item }) {
       />
 
       <div className="relative mx-auto flex h-full w-full max-w-[1680px] items-center">
-        <div className="glass crop-marks flex h-full w-full flex-col rounded-[2.25rem] border border-primary/22 bg-[linear-gradient(180deg,rgba(8,10,18,0.92),rgba(10,11,20,0.88))] px-7 py-7 shadow-[0_30px_120px_rgba(0,0,0,0.32)] sm:px-8 sm:py-8 xl:px-10 xl:py-9">
+        <div className="glass flex h-full w-full flex-col rounded-[2.25rem] border border-primary/22 bg-[linear-gradient(180deg,rgba(8,10,18,0.92),rgba(10,11,20,0.88))] px-7 py-7 shadow-[0_30px_120px_rgba(0,0,0,0.32)] sm:px-8 sm:py-8 xl:px-10 xl:py-9">
           <div className="flex h-full min-w-0 flex-col">
             <div className="flex flex-wrap gap-3">
-              {stageLabel ? <MetaPill accent>{stageLabel}</MetaPill> : null}
-              {timeRange ? (
+              {stageLabel || canEditAgendaItem ? (
+                <MetaPill accent>
+                  {canEditAgendaItem
+                    ? editor.text({
+                        as: 'span',
+                        value: item?.session_label,
+                        fallback: 'SESSION',
+                        onChange: (value) => setAgendaField('session_label', value),
+                        ariaLabel: 'Presentation session label',
+                      })
+                    : stageLabel}
+                </MetaPill>
+              ) : null}
+
+              {timeRange || canEditAgendaItem ? (
                 <MetaPill>
                   <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
-                  {timeRange}
+                  {canEditAgendaItem ? (
+                    <span className="inline-flex items-center gap-1">
+                      {editor.text({
+                        as: 'span',
+                        value: item?.start_time,
+                        fallback: 'Start',
+                        onChange: (value) => setAgendaField('start_time', value),
+                        ariaLabel: 'Presentation start time',
+                      })}
+                      <span className="text-foreground/65">-</span>
+                      {editor.text({
+                        as: 'span',
+                        value: item?.end_time,
+                        fallback: 'End',
+                        onChange: (value) => setAgendaField('end_time', value),
+                        ariaLabel: 'Presentation end time',
+                      })}
+                    </span>
+                  ) : (
+                    timeRange
+                  )}
                 </MetaPill>
               ) : null}
             </div>
@@ -204,32 +257,86 @@ function StageSlide({ item }) {
               <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(24rem,0.9fr)] xl:items-start">
                 <div className="min-w-0">
                   <h2 className="max-w-none font-heading text-[3rem] font-semibold leading-[0.94] text-foreground sm:text-[4rem] xl:text-[4.9rem]">
-                    {title}
+                    {canEditAgendaItem
+                      ? editor.text({
+                          as: 'span',
+                          value: item?.title,
+                          fallback: 'Session title',
+                          onChange: (value) => setAgendaField('title', value),
+                          ariaLabel: 'Presentation session title',
+                        })
+                      : title}
                   </h2>
                 </div>
 
                 <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] px-6 py-5 shadow-[0_18px_60px_rgba(0,0,0,0.2)]">
                   <p className="font-heading text-[1.18rem] leading-[1.48] text-foreground/86 xl:text-[1.36rem]">
-                    {description}
+                    {canEditAgendaItem
+                      ? editor.text({
+                          as: 'span',
+                          value: item?.description,
+                          fallback: 'Session description',
+                          onChange: (value) => setAgendaField('description', value),
+                          multiline: true,
+                          ariaLabel: 'Presentation session description',
+                        })
+                      : description}
                   </p>
                 </div>
               </div>
             ) : (
               <>
                 <h2 className="mt-6 max-w-none font-heading text-[3rem] font-semibold leading-[0.94] text-foreground sm:text-[4.2rem] xl:text-[5rem]">
-                  {title}
+                  {canEditAgendaItem
+                    ? editor.text({
+                        as: 'span',
+                        value: item?.title,
+                        fallback: 'Session title',
+                        onChange: (value) => setAgendaField('title', value),
+                        ariaLabel: 'Presentation session title',
+                      })
+                    : title}
                 </h2>
 
-                {!showPanelists && speakerLine ? (
-                  <p className="mt-6 inline-flex max-w-fit rounded-full border border-primary/20 bg-primary/8 px-5 py-2 font-heading text-lg text-primary/92 shadow-[0_0_30px_rgba(0,229,255,0.08)] sm:text-xl">
-                    {speakerLine}
+                {!showPanelists && (speakerLine || canEditAgendaItem) ? (
+                  <p className="mt-6 inline-flex max-w-fit items-center rounded-full border border-primary/20 bg-primary/8 px-5 py-2 font-heading text-lg text-primary/92 shadow-[0_0_30px_rgba(0,229,255,0.08)] sm:text-xl">
+                    {canEditAgendaItem ? (
+                      <>
+                        {editor.text({
+                          as: 'span',
+                          value: item?.speaker,
+                          fallback: 'Speaker',
+                          onChange: (value) => setAgendaField('speaker', value),
+                          ariaLabel: 'Presentation speaker',
+                        })}
+                        <span className="mx-2 text-primary/60">|</span>
+                        {editor.text({
+                          as: 'span',
+                          value: item?.company,
+                          fallback: 'Company',
+                          onChange: (value) => setAgendaField('company', value),
+                          ariaLabel: 'Presentation company',
+                        })}
+                      </>
+                    ) : (
+                      speakerLine
+                    )}
                   </p>
                 ) : null}
 
-                {description ? (
+                {description || canEditAgendaItem ? (
                   <div className="mt-8 max-w-[72rem] rounded-[1.6rem] border border-white/10 bg-white/[0.03] px-6 py-5 shadow-[0_18px_60px_rgba(0,0,0,0.2)]">
                     <p className="font-heading text-[1.35rem] leading-[1.45] text-foreground/88 sm:text-[1.55rem] xl:text-[1.85rem]">
-                      {description}
+                      {canEditAgendaItem
+                        ? editor.text({
+                            as: 'span',
+                            value: item?.description,
+                            fallback: 'Session description',
+                            onChange: (value) => setAgendaField('description', value),
+                            multiline: true,
+                            ariaLabel: 'Presentation session description',
+                          })
+                        : description}
                     </p>
                   </div>
                 ) : null}
@@ -239,14 +346,9 @@ function StageSlide({ item }) {
             {panelists.length ? (
               <div className="mt-8 flex-1">
                 <div className={`grid h-full auto-rows-fr gap-5 xl:gap-6 ${panelGridColumnsClassName}`}>
-                  {panelists.map((panelist) => {
-                    return (
-                      <PanelistCard
-                        key={panelist.id}
-                        panelist={panelist}
-                      />
-                    );
-                  })}
+                  {panelists.map((panelist) => (
+                    <PanelistCard key={panelist.id} panelist={panelist} />
+                  ))}
                 </div>
               </div>
             ) : null}
@@ -257,11 +359,21 @@ function StageSlide({ item }) {
   );
 }
 
-export default function Presentation() {
-  const { data, isLoading } = useSiteContent();
+/**
+ * @param {{
+ *   content?: import('../data/siteData').DEFAULT_SITE_CONTENT | undefined,
+ *   editor?: any,
+ *   preview?: boolean,
+ * }} props
+ */
+export default function Presentation({ content, editor, preview = false } = {}) {
+  const { data: siteData, isLoading } = useSiteContent();
+  const data = content || siteData;
   const scrollContainerRef = useRef(null);
   const slideNodesRef = useRef([]);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+  const [isCursorHidden, setIsCursorHidden] = useState(false);
+  const [showSlideControls, setShowSlideControls] = useState(false);
 
   const activeAgendaItems = useMemo(
     () =>
@@ -272,49 +384,125 @@ export default function Presentation() {
     [data?.agendaItems]
   );
 
-  const focusSlides = useMemo(() => {
-    let panelCount = 0;
-    let kahootCount = 0;
+  const panelItems = useMemo(
+    () => activeAgendaItems.filter((item) => isPanelItem(item)),
+    [activeAgendaItems]
+  );
+  const kahootItems = useMemo(
+    () => activeAgendaItems.filter((item) => isInteractiveItem(item)),
+    [activeAgendaItems]
+  );
+  const networkingItem = useMemo(
+    () => activeAgendaItems.find((item) => isNetworkingItem(item)) || null,
+    [activeAgendaItems]
+  );
+  const createFallbackSlide = useCallback(
+    (type, label, title, description) => ({
+      id: `fallback-${type}`,
+      session_type: type,
+      session_label: label,
+      title,
+      description,
+      speaker: '',
+      company: '',
+      start_time: '',
+      end_time: '',
+      active: true,
+      panelists:
+        type === 'panel'
+          ? [
+              { id: `${type}-fallback-1`, name: 'Panelist 1', role: '', company: '', bio: '' },
+              { id: `${type}-fallback-2`, name: 'Panelist 2', role: '', company: '', bio: '' },
+              { id: `${type}-fallback-3`, name: 'Panelist 3', role: '', company: '', bio: '' },
+            ]
+          : [],
+    }),
+    []
+  );
 
-    return activeAgendaItems
-      .filter((item) => isPanelItem(item) || isInteractiveItem(item))
-      .map((item) => {
-        if (isInteractiveItem(item)) {
-          kahootCount += 1;
-          return {
-            ...item,
-            slideLabel: `Kahoot ${kahootCount}`,
-            interactive: true,
-          };
-        }
-
-        panelCount += 1;
-        return {
-          ...item,
-          slideLabel: `Panel ${panelCount}`,
-          interactive: false,
-        };
-      });
-  }, [activeAgendaItems]);
+  const panelSlide1 =
+    panelItems[0] ||
+    createFallbackSlide(
+      'panel',
+      'Panel 1',
+      'Panel Discussion 1',
+      'Add a panel agenda item to populate this slide.'
+    );
+  const panelSlide2 =
+    panelItems[1] ||
+    createFallbackSlide(
+      'panel',
+      'Panel 2',
+      'Panel Discussion 2',
+      'Add a second panel agenda item to populate this slide.'
+    );
+  const kahootSlide1 =
+    kahootItems[0] ||
+    createFallbackSlide(
+      'kahoot',
+      'Kahoot 1',
+      'Kahoot Session 1',
+      'Add an interactive/kahoot agenda item to populate this slide.'
+    );
+  const kahootSlide2 =
+    kahootItems[1] ||
+    createFallbackSlide(
+      'kahoot',
+      'Kahoot 2',
+      'Kahoot Session 2',
+      'Add a second interactive/kahoot agenda item to populate this slide.'
+    );
+  const networkingSlide =
+    networkingItem ||
+    createFallbackSlide(
+      'networking',
+      'Networking',
+      'Networking Session',
+      'Add a networking agenda item to populate this slide.'
+    );
 
   const slides = useMemo(
     () => [
       {
         id: 'slide-intro',
-        label: 'Keynote',
-        content: <IntroSlide data={data} />,
+        label: 'Intro',
+        content: <IntroSlide data={data} editor={editor} />,
       },
-      ...focusSlides.map((item) => ({
-        id: `slide-${item.slideLabel.toLowerCase().replace(/\s+/g, '-')}-${item.id}`,
-        label: item.slideLabel,
-        content: (
-          <StageSlide
-            item={item}
-          />
-        ),
-      })),
+      {
+        id: `slide-panel-1-${panelSlide1.id || 'slot'}`,
+        label: 'Panel 1',
+        content: <StageSlide item={panelSlide1} editor={editor} />,
+      },
+      {
+        id: `slide-kahoot-1-${kahootSlide1.id || 'slot'}`,
+        label: 'Kahoot 1',
+        content: <StageSlide item={kahootSlide1} editor={editor} />,
+      },
+      {
+        id: `slide-panel-2-${panelSlide2.id || 'slot'}`,
+        label: 'Panel 2',
+        content: <StageSlide item={panelSlide2} editor={editor} />,
+      },
+      {
+        id: `slide-kahoot-2-${kahootSlide2.id || 'slot'}`,
+        label: 'Kahoot 2',
+        content: <StageSlide item={kahootSlide2} editor={editor} />,
+      },
+      {
+        id: `slide-networking-${networkingSlide.id || 'slot'}`,
+        label: 'Networking',
+        content: <StageSlide item={networkingSlide} editor={editor} />,
+      },
     ],
-    [data, focusSlides]
+    [
+      data,
+      editor,
+      panelSlide1,
+      kahootSlide1,
+      panelSlide2,
+      kahootSlide2,
+      networkingSlide,
+    ]
   );
 
   const setSlideNode = useCallback(
@@ -380,11 +568,17 @@ export default function Presentation() {
   }, [slides.length]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
+    if (preview || typeof window === 'undefined') return undefined;
 
     const handleKeyDown = (event) => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
       if (isInteractiveElement(event.target)) return;
+
+      if (event.key === 'c' || event.key === 'C') {
+        event.preventDefault();
+        setShowSlideControls((prev) => !prev);
+        return;
+      }
 
       if (event.key === 'ArrowDown' || event.key === 'PageDown' || event.key === ' ') {
         event.preventDefault();
@@ -412,15 +606,64 @@ export default function Presentation() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeSlideIndex, goToSlide, slides.length]);
+  }, [activeSlideIndex, goToSlide, preview, slides.length]);
 
-  if (isLoading && !data) {
+  useEffect(() => {
+    if (preview || typeof window === 'undefined') return undefined;
+
+    let idleTimeoutId = null;
+
+    const clearIdleTimeout = () => {
+      if (idleTimeoutId !== null) {
+        window.clearTimeout(idleTimeoutId);
+        idleTimeoutId = null;
+      }
+    };
+
+    const scheduleIdleHide = () => {
+      clearIdleTimeout();
+      idleTimeoutId = window.setTimeout(() => {
+        setIsCursorHidden((prev) => (prev ? prev : true));
+      }, PRESENTATION_CURSOR_IDLE_TIMEOUT_MS);
+    };
+
+    const revealCursorAndScheduleHide = () => {
+      setIsCursorHidden((prev) => (prev ? false : prev));
+      scheduleIdleHide();
+    };
+    const handleKeyboardActivity = (event) => {
+      if (PRESENTATION_CURSOR_NAV_KEYS.has(event.key)) {
+        scheduleIdleHide();
+        return;
+      }
+      revealCursorAndScheduleHide();
+    };
+
+    revealCursorAndScheduleHide();
+
+    window.addEventListener('pointermove', revealCursorAndScheduleHide, { passive: true });
+    window.addEventListener('pointerdown', revealCursorAndScheduleHide, { passive: true });
+    window.addEventListener('wheel', revealCursorAndScheduleHide, { passive: true });
+    window.addEventListener('touchstart', revealCursorAndScheduleHide, { passive: true });
+    window.addEventListener('keydown', handleKeyboardActivity);
+
+    return () => {
+      clearIdleTimeout();
+      window.removeEventListener('pointermove', revealCursorAndScheduleHide);
+      window.removeEventListener('pointerdown', revealCursorAndScheduleHide);
+      window.removeEventListener('wheel', revealCursorAndScheduleHide);
+      window.removeEventListener('touchstart', revealCursorAndScheduleHide);
+      window.removeEventListener('keydown', handleKeyboardActivity);
+    };
+  }, [preview]);
+
+  if (!content && isLoading && !data) {
     return (
-      <div className="relative min-h-screen overflow-x-hidden bg-background">
-        <ParticleField reactToMouse={false} />
-        <HUDOverlay />
+      <div className={`relative overflow-x-hidden bg-background ${preview ? 'h-full' : 'min-h-screen'}`}>
+        <ParticleField preview={preview} reactToMouse={false} />
+        <HUDOverlay preview={preview} />
 
-        <main className="relative z-10 flex min-h-screen items-center justify-center px-6">
+        <main className={`relative z-10 flex items-center justify-center px-6 ${preview ? 'h-full' : 'min-h-screen'}`}>
           <div className="glass w-full max-w-md rounded-2xl px-8 py-10 text-center">
             <p className="mb-4 font-mono text-xs uppercase tracking-[0.3em] text-primary/85">
               Loading Presentation
@@ -442,60 +685,65 @@ export default function Presentation() {
   }
 
   return (
-    <div className="relative h-screen overflow-hidden bg-background">
-      <a
-        href="#presentation-main"
-        onClick={handleSkipToSlides}
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[70] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:text-foreground"
-      >
-        Skip to presentation slides
-      </a>
+    <div
+      className={`relative overflow-hidden bg-background ${preview ? 'h-full' : 'h-screen'} ${!preview && isCursorHidden ? 'cursor-none' : ''}`}
+    >
+      {!preview ? (
+        <a
+          href="#presentation-main"
+          onClick={handleSkipToSlides}
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[70] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:text-foreground"
+        >
+          Skip to presentation slides
+        </a>
+      ) : null}
 
-      <ParticleField reactToMouse={false} />
-      <HUDOverlay />
+      <ParticleField preview={preview} reactToMouse={false} />
 
-      <aside className="pointer-events-none fixed right-4 top-1/2 z-30 hidden -translate-y-1/2 lg:block">
-        <div className="pointer-events-auto glass w-48 rounded-2xl border border-primary/20 px-3 py-3">
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">
-            Presentation
-          </p>
-          <p className="mt-1 font-heading text-sm text-foreground">Slide Controls</p>
-          <ul className="mt-3 space-y-1.5">
-            {slides.map((slide, index) => {
-              const isActive = index === activeSlideIndex;
-              return (
-                <li key={slide.id}>
-                  <button
-                    type="button"
-                    onClick={() => goToSlide(index)}
-                    className={`w-full rounded-md border px-2 py-1.5 text-left transition ${
-                      isActive
-                        ? 'border-primary/45 bg-primary/12 text-foreground'
-                        : 'border-primary/15 bg-background/20 text-muted-foreground hover:border-primary/30 hover:text-foreground'
-                    }`}
-                    aria-current={isActive ? 'true' : undefined}
-                    aria-label={`Go to ${slide.label} slide`}
-                  >
-                    <span className="font-mono text-[10px] uppercase tracking-[0.2em]">
-                      {String(index + 1).padStart(2, '0')}
-                    </span>
-                    <span className="ml-2 font-heading text-xs">{slide.label}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          <p className="mt-3 font-mono text-[10px] leading-4 text-muted-foreground/80">
-            Use Arrow keys, Page Up/Down, Home, or End.
-          </p>
-        </div>
-      </aside>
+      {!preview && showSlideControls ? (
+        <aside className="pointer-events-none fixed right-4 top-1/2 z-30 hidden -translate-y-1/2 lg:block">
+          <div className="pointer-events-auto glass w-48 rounded-2xl border border-primary/20 px-3 py-3">
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">
+              Presentation
+            </p>
+            <p className="mt-1 font-heading text-sm text-foreground">Slide Controls</p>
+            <ul className="mt-3 space-y-1.5">
+              {slides.map((slide, index) => {
+                const isActive = index === activeSlideIndex;
+                return (
+                  <li key={slide.id}>
+                    <button
+                      type="button"
+                      onClick={() => goToSlide(index)}
+                      className={`w-full rounded-md border px-2 py-1.5 text-left transition ${
+                        isActive
+                          ? 'border-primary/45 bg-primary/12 text-foreground'
+                          : 'border-primary/15 bg-background/20 text-muted-foreground hover:border-primary/30 hover:text-foreground'
+                      }`}
+                      aria-current={isActive ? 'true' : undefined}
+                      aria-label={`Go to ${slide.label} slide`}
+                    >
+                      <span className="font-mono text-[10px] uppercase tracking-[0.2em]">
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      <span className="ml-2 font-heading text-xs">{slide.label}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="mt-3 font-mono text-[10px] leading-4 text-muted-foreground/80">
+              Use Arrow keys, Page Up/Down, Home, End, or C.
+            </p>
+          </div>
+        </aside>
+      ) : null}
 
       <main
         id="presentation-main"
         ref={scrollContainerRef}
         tabIndex={-1}
-        className="relative z-10 h-screen snap-y snap-proximity overflow-y-auto scroll-smooth"
+        className={`presentation-scroll-hidden relative z-10 snap-y snap-proximity overflow-x-hidden overflow-y-auto scroll-smooth ${preview ? 'h-full' : 'h-screen'}`}
         aria-label="CyberSwarm presentation"
       >
         {slides.map((slide, index) => (
@@ -503,7 +751,7 @@ export default function Presentation() {
             key={slide.id}
             id={slide.id}
             ref={setSlideNode(index)}
-            className="snap-start min-h-screen"
+            className={preview ? 'snap-start min-h-full' : 'snap-start min-h-screen'}
             role="group"
             aria-roledescription="slide"
             aria-label={`Slide ${index + 1} of ${slides.length}: ${slide.label}`}
