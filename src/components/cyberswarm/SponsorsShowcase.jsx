@@ -91,9 +91,14 @@ const getFallbackMark = (name) =>
     .slice(0, 3);
 
 /**
- * @param {{ onBecomeSponsorClick?: (() => void) | undefined, content?: import('@/data/siteData').DEFAULT_SITE_CONTENT | undefined, editor?: any }} props
+ * @param {{
+ *   onBecomeSponsorClick?: (() => void) | undefined,
+ *   content?: import('@/data/siteData').DEFAULT_SITE_CONTENT | undefined,
+ *   editor?: any,
+ *   showCta?: boolean,
+ * }} props
  */
-export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor } = {}) {
+export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor, showCta = true } = {}) {
   const { data: siteData } = useSiteContent();
   const data = content || siteData;
   const prefersReducedMotion = useReducedMotion();
@@ -400,7 +405,7 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
   const sponsorStageStyle = { width: '100%', maxWidth: stageMaxWidth };
 
   if (!sponsors.length) {
-    if (!ctaLabel) return null;
+    if (!showCta || !ctaLabel) return null;
 
     return (
       <section className="relative z-10 px-6 py-12 md:py-16" aria-labelledby="sponsors-heading">
@@ -522,7 +527,7 @@ export default function SponsorsShowcase({ onBecomeSponsorClick, content, editor
                 </p>
               </div>
 
-              {ctaLabel ? (
+              {showCta && ctaLabel ? (
                 <button
                   type="button"
                   onClick={onBecomeSponsorClick}

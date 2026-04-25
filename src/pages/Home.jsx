@@ -36,8 +36,9 @@ export default function Home() {
   }, []);
 
   const openSponsorForm = useCallback(() => {
+    if (isEventOver) return;
     setIsSponsorFormOpen(true);
-  }, []);
+  }, [isEventOver]);
 
   const closeSponsorForm = useCallback(() => {
     setIsSponsorFormOpen(false);
@@ -50,6 +51,7 @@ export default function Home() {
     if (typeof window === 'undefined') return undefined;
 
     const handleHashChange = () => {
+      if (isEventOver) return;
       if (window.location.hash === '#sponsor-interest') {
         setIsSponsorFormOpen(true);
       }
@@ -57,7 +59,16 @@ export default function Home() {
 
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  }, [isEventOver]);
+
+  useEffect(() => {
+    if (!isEventOver || !isSponsorFormOpen || typeof window === 'undefined') return;
+
+    setIsSponsorFormOpen(false);
+    if (window.location.hash === '#sponsor-interest') {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, [isEventOver, isSponsorFormOpen]);
 
   useEffect(() => {
     if (!isSponsorFormOpen || typeof window === 'undefined') return undefined;
@@ -124,8 +135,8 @@ export default function Home() {
       {/* Content */}
       <main id="main-content" tabIndex={-1}>
         <Hero showCountdown={!isEventOver} showCta={!isEventOver} />
-        <SponsorsShowcase onBecomeSponsorClick={openSponsorForm} />
-        {isSponsorFormOpen ? <SponsorInterestForm onClose={closeSponsorForm} /> : null}
+        <SponsorsShowcase showCta={!isEventOver} onBecomeSponsorClick={openSponsorForm} />
+        {!isEventOver && isSponsorFormOpen ? <SponsorInterestForm onClose={closeSponsorForm} /> : null}
         <CompanyLogos />
         <AgendaTimeline />
         <AdminUpdatesSection />

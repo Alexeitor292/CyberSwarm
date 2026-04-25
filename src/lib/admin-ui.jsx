@@ -2402,7 +2402,12 @@ export default function AdminUI() {
               />
             </PreviewBlock>
             <PreviewBlock blockId="sponsors" label="Sponsors">
-              <SponsorsShowcase content={draft} editor={inlineEditor} onBecomeSponsorClick={() => setSiteBuilderBlock('sponsors')} />
+              <SponsorsShowcase
+                content={draft}
+                editor={inlineEditor}
+                showCta={!isEventOver}
+                onBecomeSponsorClick={() => setSiteBuilderBlock('sponsors')}
+              />
             </PreviewBlock>
             <PreviewBlock blockId="organizations" label="Organizations">
               <CompanyLogos content={draft} editor={inlineEditor} />
