@@ -15,6 +15,7 @@ import { useSiteContent } from '../hooks/use-site-content';
 
 export default function Home() {
   const { data, isLoading } = useSiteContent();
+  const isEventOver = data?.eventConfig?.event_is_over === true;
   const [isSponsorFormOpen, setIsSponsorFormOpen] = useState(
     () => typeof window !== 'undefined' && window.location.hash === '#sponsor-interest'
   );
@@ -122,16 +123,16 @@ export default function Home() {
 
       {/* Content */}
       <main id="main-content" tabIndex={-1}>
-        <Hero />
+        <Hero showCountdown={!isEventOver} showCta={!isEventOver} />
         <SponsorsShowcase onBecomeSponsorClick={openSponsorForm} />
         {isSponsorFormOpen ? <SponsorInterestForm onClose={closeSponsorForm} /> : null}
         <CompanyLogos />
         <AgendaTimeline />
         <AdminUpdatesSection />
         <EventInfo />
-        <RegistrationForm />
+        {!isEventOver ? <RegistrationForm /> : null}
       </main>
-      <Footer />
+      {!isEventOver ? <Footer /> : null}
     </div>
   );
 }

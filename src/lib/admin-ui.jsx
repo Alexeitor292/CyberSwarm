@@ -2344,6 +2344,8 @@ export default function AdminUI() {
   };
 
   const renderSiteCanvasPreview = () => {
+    const isEventOver = draft?.eventConfig?.event_is_over === true;
+
     const selectBlock = (blockId) => {
       setSiteBuilderBlock(blockId);
       setSaveMessage(`Selected ${blockId.replace(/-/g, ' ')} on the live canvas.`);
@@ -2392,7 +2394,12 @@ export default function AdminUI() {
             <ParticleField preview />
             <HUDOverlay preview />
             <PreviewBlock blockId="hero" label="Hero">
-              <Hero content={draft} editor={inlineEditor} />
+              <Hero
+                content={draft}
+                editor={inlineEditor}
+                showCountdown={!isEventOver}
+                showCta={!isEventOver}
+              />
             </PreviewBlock>
             <PreviewBlock blockId="sponsors" label="Sponsors">
               <SponsorsShowcase content={draft} editor={inlineEditor} onBecomeSponsorClick={() => setSiteBuilderBlock('sponsors')} />
@@ -2409,12 +2416,16 @@ export default function AdminUI() {
             <PreviewBlock blockId="event-details" label="Event Intel">
               <EventInfo content={draft} editor={inlineEditor} />
             </PreviewBlock>
-            <PreviewBlock blockId="registration" label="Registration">
-              <RegistrationForm content={draft} editor={inlineEditor} />
-            </PreviewBlock>
-            <PreviewBlock blockId="footer" label="Footer">
-              <Footer content={draft} editor={inlineEditor} />
-            </PreviewBlock>
+            {!isEventOver ? (
+              <PreviewBlock blockId="registration" label="Registration">
+                <RegistrationForm content={draft} editor={inlineEditor} />
+              </PreviewBlock>
+            ) : null}
+            {!isEventOver ? (
+              <PreviewBlock blockId="footer" label="Footer">
+                <Footer content={draft} editor={inlineEditor} />
+              </PreviewBlock>
+            ) : null}
           </div>
         </div>
       </div>
@@ -2539,6 +2550,22 @@ export default function AdminUI() {
               {draft?.eventConfig?.venue_name_line_1 || draft?.eventConfig?.venue_name || 'Venue not set'}
               {draft?.eventConfig?.venue_address ? `, ${draft.eventConfig.venue_address}` : ''}
             </p>
+            <div className="mt-4 rounded-xl border border-primary/15 bg-background/40 p-3">
+              <label className="flex items-start gap-3 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={draft.eventConfig?.event_is_over === true}
+                  onChange={(event) => setField('eventConfig', 'event_is_over', event.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Event is over mode
+                  <span className="mt-1 block font-mono text-xs leading-5 text-muted-foreground/75">
+                    Hides the public countdown, registration section, and footer.
+                  </span>
+                </span>
+              </label>
+            </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <span className="rounded-full border border-primary/20 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-primary/80">
                 {hasRegistrationEmbed ? 'Registration Ready' : 'Registration Needs Setup'}

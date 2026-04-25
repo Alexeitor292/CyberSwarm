@@ -43,6 +43,10 @@
       "type": "string",
       "description": "Google Form embed URL for registration"
     },
+    "event_is_over": {
+      "type": "boolean",
+      "description": "When true, the public website hides countdown and registration-focused sections"
+    },
     "tagline": {
       "type": "string",
       "description": "Event tagline"

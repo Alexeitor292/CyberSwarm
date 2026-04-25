@@ -48,6 +48,7 @@ export const DEFAULT_EVENT_CONFIG = {
   google_maps_place_id: DEFAULT_PLACE_ID,
   google_maps_directions_url: DEFAULT_DIRECTIONS_URL,
   google_form_embed_url: '',
+  event_is_over: false,
 };
 
 export const DEFAULT_REGISTRATION_CONFIG = {
@@ -879,6 +880,10 @@ export const normalizeSiteContent = (raw) => {
   const normalizedEventConfig = {
     ...DEFAULT_EVENT_CONFIG,
     ...eventConfig,
+    event_is_over: normalizeBooleanField(
+      eventConfig.event_is_over ?? eventConfig.eventIsOver,
+      DEFAULT_EVENT_CONFIG.event_is_over
+    ),
     venue_name_line_1: String(
       eventConfig.venue_name_line_1 ?? eventConfig.venue_name ?? DEFAULT_EVENT_CONFIG.venue_name_line_1
     ),
